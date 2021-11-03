@@ -3810,6 +3810,8 @@ class NokiaSROSDriver(NetworkDriver):
             environment_data["memory"].update(
                 {"available_ram": available_ram, "used_ram": used_ram}
             )
+        # JvB: debug
+        print( environment_data )
         return environment_data
 
     def get_ipv6_neighbors_table(self):
