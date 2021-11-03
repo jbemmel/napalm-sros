@@ -3687,26 +3687,21 @@ class NokiaSROSDriver(NetworkDriver):
                 filter=GET_ENVIRONMENT["_"], with_defaults="report-all"
             ).data_xml
         )
-        print( f"JvB: get_environment => {result}" )
+        # print( f"JvB: get_environment => {result}" )
         for fan in result.xpath(
             "state_ns:state/state_ns:chassis/state_ns:fan", namespaces=self.nsmap
         ):
             fan_slot = self._find_txt(fan, "state_ns:fan-slot", namespaces=self.nsmap)
-
             oper_state = (
-                True
-                if self._find_txt(
+                self._find_txt(
                     fan,
                     "state_ns:hardware-data/state_ns:oper-state",
                     namespaces=self.nsmap,
-                )
-                == "in-service"
-                else False
+                ) == "in-service"
             )
             environment_data["fans"].update({fan_slot: {"status": oper_state}})
 
         # get the output of each power-module using MD-CLI
-        # JvB TODO remove CLI scraping logic
         buff = self._perform_cli_commands(
             [
                 "environment more false",
@@ -3804,11 +3799,12 @@ class NokiaSROSDriver(NetworkDriver):
                 )
                 environment_data["cpu"].update({ f"Summary for all CPUs(sample_period={sample_period}s)": { "%usage": cpu_usage }})
 
+            # JvB: available_ram = total available, not remaining
             environment_data["memory"].update(
-                {"available_ram": available_ram, "used_ram": used_ram}
+                {"available_ram": available_ram + used_ram, "used_ram": used_ram}
             )
         # JvB: debug
-        print( environment_data )
+        # print( environment_data )
         return environment_data
 
     def get_ipv6_neighbors_table(self):
