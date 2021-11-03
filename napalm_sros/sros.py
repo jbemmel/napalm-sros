@@ -3802,7 +3802,7 @@ class NokiaSROSDriver(NetworkDriver):
                     ),
                     default=-1,
                 )
-                environment_data["cpu"].update({ str(cpu): { "%usage": cpu_usage, "sample_period": sample_period }})
+                environment_data["cpu"].update({ f"Summary for all CPUs(sample_period={sample_period}s)": { "%usage": cpu_usage }})
 
             environment_data["memory"].update(
                 {"available_ram": available_ram, "used_ram": used_ram}
