@@ -3706,6 +3706,7 @@ class NokiaSROSDriver(NetworkDriver):
             environment_data["fans"].update({fan_slot: {"status": oper_state}})
 
         # get the output of each power-module using MD-CLI
+        # JvB TODO remove CLI scraping logic
         buff = self._perform_cli_commands(
             [
                 "environment more false",
@@ -3719,10 +3720,9 @@ class NokiaSROSDriver(NetworkDriver):
             if "Power Module" in item:
                 total_power_modules = total_power_modules + 1
             if "Current Util." in item:
-                row = item.strip()
-                print( f"JvB parsing row: '{row}'" )
-                row_list = re.split(": | W", row)
-                output = float(row_list[1])
+                watts = re.match("^.*:\s*(\d+[.]\d+) Watts.*$", item )
+                if watts:
+                   output = float( watts.groups()[0] )
 
         for power_module in result.xpath(
             "state_ns:state/state_ns:chassis/state_ns:power-shelf/state_ns:power-module",
@@ -3734,16 +3734,11 @@ class NokiaSROSDriver(NetworkDriver):
                     power_module, "state_ns:power-module-id", namespaces=self.nsmap
                 ),
             )
-            oper_state = (
-                True
-                if self._find_txt(
+            oper_state = self._find_txt(
                     power_module,
                     "state_ns:hardware-data/state_ns:oper-state",
                     namespaces=self.nsmap,
-                )
-                == "in-service"
-                else False
-            )
+                ) == "in-service"
             capacity = convert(
                 float,
                 self._find_txt(
