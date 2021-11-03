@@ -3747,7 +3747,8 @@ class NokiaSROSDriver(NetworkDriver):
             )
             environment_data["power"].update(
                 {
-                    power_module_id: {
+                    # JvB make it a string with a name matching the power port name in Netbox
+                    f"PS{power_module_id}": {
                         "status": oper_state,
                         "capacity": capacity,
                         "output": output / total_power_modules,
