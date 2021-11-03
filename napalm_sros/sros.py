@@ -3687,7 +3687,7 @@ class NokiaSROSDriver(NetworkDriver):
                 filter=GET_ENVIRONMENT["_"], with_defaults="report-all"
             ).data_xml
         )
-
+        print( f"JvB: get_environment => {result}" )
         for fan in result.xpath(
             "state_ns:state/state_ns:chassis/state_ns:fan", namespaces=self.nsmap
         ):
@@ -3720,6 +3720,7 @@ class NokiaSROSDriver(NetworkDriver):
                 total_power_modules = total_power_modules + 1
             if "Current Util." in item:
                 row = item.strip()
+                print( f"JvB parsing row: '{row}'" )
                 row_list = re.split(": | W", row)
                 output = float(row_list[1])
 
