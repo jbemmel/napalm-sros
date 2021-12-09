@@ -4221,4 +4221,3 @@ class NokiaSROSDriver(NetworkDriver):
         except Exception as e:
             print("Error in method cli : {}".format(e))
             log.error("Error in method cli : %s" % traceback.format_exc())
-

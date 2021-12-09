@@ -4,6 +4,7 @@ flake8-import-order
 pytest
 pytest-cov
 pytest-json
+pytest-env
 pytest-pythonpath
 pylama
 mock
