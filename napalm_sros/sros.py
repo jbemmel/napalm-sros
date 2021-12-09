@@ -30,6 +30,7 @@ import traceback
 import xmltodict
 from dictdiffer import diff
 import paramiko
+import json
 
 # import NAPALM libraries
 
@@ -3809,6 +3810,34 @@ class NokiaSROSDriver(NetworkDriver):
                     "is_critical": True if temp >= temp_thresh else False,
                 }
 
+<<<<<<< HEAD
+            if choice == 1:
+                environment_data["temperature"].update({"cpm": {}})
+                environment_data["temperature"]["cpm"].update(data)
+            elif choice == 2:
+                environment_data["temperature"].update({"card": {}})
+                environment_data["temperature"]["card"].update(data)
+            elif choice == 3:
+                environment_data["temperature"].update({"mda": {}})
+                environment_data["temperature"]["mda"].update(data)
+
+        result = to_ele(
+            self.conn.get(
+                filter=GET_ENVIRONMENT["_"], with_defaults="report-all"
+            ).data_xml
+        )
+        # print( f"JvB: get_environment => {result}" )
+        for fan in result.xpath(
+            "state_ns:state/state_ns:chassis/state_ns:fan", namespaces=self.nsmap
+        ):
+            fan_slot = self._find_txt(fan, "state_ns:fan-slot", namespaces=self.nsmap)
+            oper_state = (
+                self._find_txt(
+                    fan,
+                    "state_ns:hardware-data/state_ns:oper-state",
+                    namespaces=self.nsmap,
+                ) == "in-service"
+=======
                 if choice == 1:
                     environment_data["temperature"].update({"cpm": {}})
                     environment_data["temperature"]["cpm"].update(data)
@@ -3823,8 +3852,60 @@ class NokiaSROSDriver(NetworkDriver):
                 self.conn.get(
                     filter=GET_ENVIRONMENT["_"], with_defaults="report-all"
                 ).data_xml
+>>>>>>> 8493122dc8adc12cab98d117ee64a5c5f34f754e
             )
 
+<<<<<<< HEAD
+        # get the output of each power-module using MD-CLI
+        buff = self._perform_cli_commands(
+            [
+                "environment more false",
+                "show chassis power-management utilization detail",
+            ],
+            True,
+        )
+        total_power_modules = 0
+        output = 0.0
+        for item in buff.split("\n"):
+            if "Power Module" in item:
+                total_power_modules = total_power_modules + 1
+            if "Current Util." in item:
+                watts = re.match("^.*:\s*(\d+[.]\d+) Watts.*$", item )
+                if watts:
+                   output = float( watts.groups()[0] )
+
+        for power_module in result.xpath(
+            "state_ns:state/state_ns:chassis/state_ns:power-shelf/state_ns:power-module",
+            namespaces=self.nsmap,
+        ):
+            power_module_id = convert(
+                int,
+                self._find_txt(
+                    power_module, "state_ns:power-module-id", namespaces=self.nsmap
+                ),
+            )
+            oper_state = self._find_txt(
+                    power_module,
+                    "state_ns:hardware-data/state_ns:oper-state",
+                    namespaces=self.nsmap,
+                ) == "in-service"
+            capacity = convert(
+                float,
+                self._find_txt(
+                    power_module, "state_ns:available-wattage", namespaces=self.nsmap
+                ),
+            )
+            environment_data["power"].update(
+                {
+                    # JvB make it a string with a name matching the power port name in Netbox
+                    f"PS{power_module_id}": {
+                        "status": oper_state,
+                        "capacity": capacity,
+                        "output": output / total_power_modules,
+                    }
+                }
+            )
+=======
             for fan in result.xpath(
                 "state_ns:state/state_ns:chassis/state_ns:fan", namespaces=self.nsmap
             ):
@@ -3841,6 +3922,7 @@ class NokiaSROSDriver(NetworkDriver):
                     else False
                 )
                 environment_data["fans"].update({fan_slot: {"status": oper_state}})
+>>>>>>> 8493122dc8adc12cab98d117ee64a5c5f34f754e
 
             # get the output of each power-module using MD-CLI
             buff = self._perform_cli_commands(
@@ -3924,6 +4006,17 @@ class NokiaSROSDriver(NetworkDriver):
                         namespaces=self.nsmap,
                     ),
                 )
+<<<<<<< HEAD
+                environment_data["cpu"].update({ f"Summary for all CPUs(sample_period={sample_period}s)": { "%usage": cpu_usage }})
+
+            # JvB: available_ram = total available, not remaining
+            environment_data["memory"].update(
+                {"available_ram": available_ram + used_ram, "used_ram": used_ram}
+            )
+        # JvB: debug
+        # print( environment_data )
+        return environment_data
+=======
                 environment_data.update({"cpu": {}})
                 for cpu in result.xpath(
                     "state_ns:state/state_ns:system/state_ns:cpu", namespaces=self.nsmap
@@ -3953,6 +4046,7 @@ class NokiaSROSDriver(NetworkDriver):
             print("Error in method get environment data : {}".format(e))
             log.error("Error in method get environment data : %s" % traceback.format_exc())
 
+>>>>>>> 8493122dc8adc12cab98d117ee64a5c5f34f754e
 
     def get_ipv6_neighbors_table(self):
         """
