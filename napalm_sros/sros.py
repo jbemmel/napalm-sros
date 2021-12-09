@@ -41,6 +41,7 @@ from napalm.base.exceptions import (
     SessionLockedException,
     MergeConfigException,
     ReplaceConfigException,
+    CommitError,
 )
 from napalm.base.helpers import convert, ip, as_number
 import napalm.base.constants as C
@@ -110,11 +111,11 @@ class NokiaSROSDriver(NetworkDriver):
                 hostkey_verify=False,
                 timeout=self.timeout,
             )
-        except ConnectionException as ce:
+        except ConnectionException:
             log.error( "ConnectionException during open", exc_info=True )
             raise
 
-        except Exception as e:
+        except Exception:
             log.error( "general Exception during open", exc_info=True )
             raise
 
@@ -316,7 +317,8 @@ class NokiaSROSDriver(NetworkDriver):
                     row_list = row.split(": ")
                     error += row_list[2]
             if error:
-                print("Error while commit: ", error)
+                log.err("Error(s) in commit_config: ", error)
+                raise CommitError( error )
         elif self.fmt == "xml":
             self.conn.commit()
             if not self.lock_disable and not self.session_config_lock:
@@ -338,9 +340,9 @@ class NokiaSROSDriver(NetworkDriver):
                     row = item.strip()
                     row_list = row.split(": ")
                     error += row_list[2]
-                if error:
-                    print("Error while rollback: ", error)
-                    break
+            if error:
+                log.err("Error(s) during rollback: ", error)
+                raise CommitError( error )
 
     def compare_config(self):
         """
@@ -409,7 +411,7 @@ class NokiaSROSDriver(NetworkDriver):
         else:
             return ""
 
-    def _determinne_config_format(self, config) -> str:
+    def _determine_config_format(self, config) -> str:
         if config.strip().startswith("<"):
             return "xml"
         return "text"
@@ -432,7 +434,7 @@ class NokiaSROSDriver(NetworkDriver):
                 configuration = f.read()
 
         try:
-            self.fmt = self._determinne_config_format(configuration)
+            self.fmt = self._determine_config_format(configuration)
             if self.fmt == "xml":
                 if not self.lock_disable and not self.session_config_lock:
                     self._lock_config()
@@ -464,8 +466,8 @@ class NokiaSROSDriver(NetworkDriver):
                 if buff is not None:
                     for item in buff.split("\n"):
                         if any(match.search(item) for match in self.terminal_stderr_re):
-                            log.error("Merge issue: %s", item)
-                            raise MergeConfigException("Merge issue: %s", item)
+                            log.error("Merge issue: %s" % item)
+                            raise MergeConfigException("Merge issue: %s" % item)
 
     def load_replace_candidate(self, filename=None, config=None):
         """
@@ -487,7 +489,7 @@ class NokiaSROSDriver(NetworkDriver):
                 configuration = f.read()
 
         try:
-            self.fmt = self._determinne_config_format(configuration)
+            self.fmt = self._determine_config_format(configuration)
             if self.fmt == "xml":
                 if not self.lock_disable and not self.session_config_lock:
                     self._lock_config()
@@ -518,8 +520,8 @@ class NokiaSROSDriver(NetworkDriver):
                 if buff is not None:
                     for item in buff.split("\n"):
                         if any(match.search(item) for match in self.terminal_stderr_re):
-                            log.error("Replace issue: %s", item)
-                            raise ReplaceConfigException("Replace issue: %s", item)
+                            log.error("Replace issue: %s" % item)
+                            raise ReplaceConfigException("Replace issue: %s" % item)
 
     def get_facts(self):
         """
