@@ -42,6 +42,7 @@ from napalm.base.exceptions import (
     SessionLockedException,
     MergeConfigException,
     ReplaceConfigException,
+    CommitConfirmException,
 )
 from napalm.base.helpers import convert, ip, as_number
 import napalm.base.constants as C
@@ -63,13 +64,11 @@ class NokiaSROSDriver(NetworkDriver):
 
     def __init__(self, hostname, username, password, timeout=60, optional_args=None):
         """Constructor."""
-        self.manager = None
         self.hostname = hostname
         self.username = username
         self.password = password
         self.timeout = timeout
         self.conn = None
-        self.conn_ssh = None
         self.ssh_channel = None
         self.fmt = None
         self.locked = False
@@ -93,42 +92,42 @@ class NokiaSROSDriver(NetworkDriver):
         self.ssh_channel = optional_args.get("ssh_channel", None)
 
         # locking variables
-        self.lock_disable = optional_args.get("lock_disable", False)
-        self.session_config_lock = optional_args.get("config_lock", False)
+        # Disable all configuration locking for management by an external system
+        # JvB not sure this makes sense for this implementation
+        # self.lock_disable = optional_args.get("lock_disable", False)
+
+        #- lock configuration DB after the connection is established.
+        # JvB not sure this makes sense for this implementation
+        # self.session_config_lock = optional_args.get("config_lock", False)
 
         # namespace map
         self.nsmap = {
             "state_ns": "urn:nokia.com:sros:ns:yang:sr:state",
             "configure_ns": "urn:nokia.com:sros:ns:yang:sr:conf",
         }
-        self.optional_args = None
 
     def open(self):
         """Implement the NAPALM method open (mandatory)"""
         # Create a NETCONF connection to the host
         try:
-            if self.manager:
-                self.conn = self.manager.connect()
-            else:
-                self.conn = manager.connect(
-                    host=self.hostname,
-                    port=self.port,
-                    username=self.username,
-                    password=self.password,
-                    hostkey_verify=False,
-                    timeout=self.timeout,
-                )
-        except ConnectionException as ce:
-            print("Error in opening netconf connection : {}".format(ce))
-            log.error(
-                "Error in opening netconf connection : %s" % traceback.format_exc()
+            self.conn = manager.connect(
+                host=self.hostname,
+                port=self.port,
+                username=self.username,
+                password=self.password,
+                hostkey_verify=False,
+                timeout=self.timeout,
             )
+        except ConnectTimeoutError as cte:
+            log.error( "ConnectTimeoutError when opening netconf connection", exc_info=True )
+            raise ConnectionException(cte.message) from cte
+        except ConnectionException:
+            log.error( "ConnectionException when opening netconf connection", exc_info=True )
+            raise
 
-        except Exception as e:
-            print("Error in opening netconf connection : {}".format(e))
-            log.error(
-                "Error in opening netconf connection : %s" % traceback.format_exc()
-            )
+        except Exception:
+            log.error( "generic Exception when opening netconf connection", exc_info=True )
+            raise
 
     def close(self):
         """Implement the NAPALM method close (mandatory)"""
@@ -150,12 +149,12 @@ class NokiaSROSDriver(NetworkDriver):
                 port=22,
                 username=self.username,
                 password=self.password,
-                timeout = self.timeout
+                timeout=self.timeout
             )
             self.ssh_channel = self.conn_ssh.invoke_shell()
-        except Exception as e:
-            print("Error in opening a ssh connection: {}".format(e))
-            log.error("Error in opening a ssh connection: %s" % traceback.format_exc())
+        except Exception:
+            log.error( "generic Exception when opening netconf ssh connection", exc_info=True )
+            raise
 
     def _perform_cli_commands(self, commands, is_get):
         try:
@@ -217,32 +216,19 @@ class NokiaSROSDriver(NetworkDriver):
 
             return buff
         except Exception as e:
-            print("Error in method perform cli commands : {}".format(e))
-            log.error("Error in method perform cli commands : %s" % traceback.format_exc())
+            log.error( "generic Exception in _perform_cli_commands", exc_info=True )
+            raise
 
-    def _lock_config(self):
-        if not self.locked:
-            try:
-                self.conn.lock()
-                self.locked = True
-            except SessionLockedException as se:
-                print("Error in locking the session: {}".format(se))
-                log.error("Error in locking the session: %s" % traceback.format_exc())
-            except Exception as e:
-                print("Error in locking the session caused exception: {}".format(e))
-                log.error(
-                    "Error in locking the session caused exception: %s" %
-                    traceback.format_exc(),
-                )
+    # def _lock_config(self):
+    #     if not self.locked:
+    #         # internal method, any exception raised gets handled by the caller
+    #         self.conn.lock()
+    #         self.locked = True
 
-    def _unlock_config(self):
-        if self.locked:
-            try:
-                self.conn.unlock()
-                self.locked = False
-            except Exception as e:
-                print("Error in unlocking the session: {}".format(e))
-                log.error("Error in unlocking the session: %s" % traceback.format_exc())
+    # def _unlock_config(self):
+    #     if self.locked:
+    #         self.conn.unlock()
+    #         self.locked = False
 
     def _find_txt(self, xml_tree, path, default="", namespaces=None):
         """
@@ -255,7 +241,7 @@ class NokiaSROSDriver(NetworkDriver):
         :param namespaces: prefix-namespace mappings to process XPath
         :return: a str value.
         """
-        value = ""
+        value = default # returned in case of error
         try:
             xpath_applied = xml_tree.xpath(
                 path, namespaces=namespaces
@@ -275,10 +261,8 @@ class NokiaSROSDriver(NetworkDriver):
                             the XML tree provided. Total Items in XML tree: %d "
                         % (path, xpath_length)
                     )
-        except Exception as e:  # in case of any exception, returns default
-            print("Error while finding text in xml: {}".format(e))
-            logging.error("Error while finding text in xml: %s" % traceback.format_exc())
-            value = default
+        except Exception:  # in case of any exception, returns default
+            log.error( "generic Exception in _find_txt, returning default value", exc_info=True )
         return str(value)
 
     def is_alive(self):
@@ -289,16 +273,9 @@ class NokiaSROSDriver(NetworkDriver):
         e.g.: NETCONF session might not be usable, although the underlying
         SSH session is still open etc.
         """
-        try:
-            is_alive_dict = {}
-            if self.conn is not None and self.conn_ssh is not None:
-                is_alive_dict.update({"is_alive": True})
-            else:
-                is_alive_dict.update({"is_alive": False})
-            return is_alive_dict
-        except Exception as e:  # in case of any exception, returns default
-            print("Error occurred in is_alive method: {}".format(e))
-            logging.error("Error occurred in is_alive method: %s" % traceback.format_exc())
+        return {
+          "is_alive": self.conn is not None and self.conn_ssh is not None
+        }
 
     def discard_config(self):
         """
@@ -308,8 +285,8 @@ class NokiaSROSDriver(NetworkDriver):
             self.conn.discard_changes()
         else:
             self._perform_cli_commands(["discard"], True)
-        if not self.lock_disable and not self.session_config_lock:
-            self._unlock_config()
+        # if not self.lock_disable and not self.session_config_lock:
+        #    self._unlock_config()
 
     def commit_config(self, message="", revert_in=None):
         """
@@ -328,11 +305,12 @@ class NokiaSROSDriver(NetworkDriver):
                     row_list = row.split(": ")
                     error += row_list[2]
             if error:
-                print("Error while commit: ", error)
+                log.error( f"error during commit_config: {error}" )
+                raise CommitConfirmException(error)
         elif self.fmt == "xml":
             self.conn.commit()
-            if not self.lock_disable and not self.session_config_lock:
-                self._unlock_config()
+            # if not self.lock_disable and not self.session_config_lock:
+            #    self._unlock_config()
 
     def rollback(self):
         """
@@ -351,8 +329,8 @@ class NokiaSROSDriver(NetworkDriver):
                     row_list = row.split(": ")
                     error += row_list[2]
                 if error:
-                    print("Error while rollback: ", error)
-                    break
+                    log.error( f"error during rollback: {error}" )
+                    raise CommitConfirmException(error)
 
     def compare_config(self):
         """
@@ -421,7 +399,7 @@ class NokiaSROSDriver(NetworkDriver):
         else:
             return ""
 
-    def _determinne_config_format(self, config) -> str:
+    def _determine_config_format(self, config) -> str:
         if config.strip().startswith("<"):
             return "xml"
         return "text"
@@ -443,44 +421,38 @@ class NokiaSROSDriver(NetworkDriver):
             with open(filename) as f:
                 configuration = f.read()
 
-        try:
-            self.fmt = self._determinne_config_format(configuration)
-            if self.fmt == "xml":
-                if not self.lock_disable and not self.session_config_lock:
-                    self._lock_config()
-                configuration = etree.XML(configuration)
-                configuration_tree = etree.ElementTree(configuration)
-                root = configuration_tree.getroot()
-                if root.tag != "{urn:ietf:params:xml:ns:netconf:base:1.0}config":
-                    newroot = etree.Element(
-                        "{urn:ietf:params:xml:ns:netconf:base:1.0}config"
-                    )
-                    newroot.insert(0, root)
-                    self.conn.edit_config(
-                        config=newroot, target="candidate", default_operation="merge"
-                    )
-
-                else:
-                    self.conn.edit_config(
-                        config=configuration,
-                        target="candidate",
-                        default_operation="merge",
-                    )
-                self.conn.validate(source="candidate")
-
+        self.fmt = self._determine_config_format(configuration)
+        if self.fmt == "xml":
+            #if not self.lock_disable and not self.session_config_lock:
+            #    self._lock_config()
+            configuration = etree.XML(configuration)
+            configuration_tree = etree.ElementTree(configuration)
+            root = configuration_tree.getroot()
+            if root.tag != "{urn:ietf:params:xml:ns:netconf:base:1.0}config":
+                newroot = etree.Element(
+                    "{urn:ietf:params:xml:ns:netconf:base:1.0}config"
+                )
+                newroot.insert(0, root)
+                self.conn.edit_config(
+                    config=newroot, target="candidate", default_operation="merge"
+                )
             else:
-                configuration = configuration.split("\n")
-                configuration.insert(0, "edit-config exclusive")
-                buff = self._perform_cli_commands(configuration, False)
-                # error checking
-                if buff is not None:
-                    for item in buff.split("\n"):
-                        if any(match.search(item) for match in self.terminal_stderr_re):
-                            raise MergeConfigException("Merge issue: %s", item)
-
-        except MergeConfigException as me:
-            print("Merge issue : {}".format(me))
-            log.error("Merge issue : %s" %traceback.format_exc())
+                self.conn.edit_config(
+                    config=configuration,
+                    target="candidate",
+                    default_operation="merge",
+                )
+            self.conn.validate(source="candidate")
+        else:
+            configuration = configuration.split("\n")
+            configuration.insert(0, "edit-config exclusive")
+            buff = self._perform_cli_commands(configuration, False)
+            # error checking
+            if buff is not None:
+                for item in buff.split("\n"):
+                    if any(match.search(item) for match in self.terminal_stderr_re):
+                        logging.error( f"Merge issue: {item}" )
+                        raise MergeConfigException("Merge issue: %s", item)
 
     def load_replace_candidate(self, filename=None, config=None):
         """
@@ -501,42 +473,39 @@ class NokiaSROSDriver(NetworkDriver):
             with open(filename) as f:
                 configuration = f.read()
 
-        try:
-            self.fmt = self._determinne_config_format(configuration)
-            if self.fmt == "xml":
-                if not self.lock_disable and not self.session_config_lock:
-                    self._lock_config()
-                configuration = etree.XML(configuration)
-                configuration_tree = etree.ElementTree(configuration)
-                root = configuration_tree.getroot()
-                if root.tag != "{urn:ietf:params:xml:ns:netconf:base:1.0}config":
-                    newroot = etree.Element(
-                        "{urn:ietf:params:xml:ns:netconf:base:1.0}config"
-                    )
-                    newroot.insert(0, root)
-                    self.conn.edit_config(
-                        config=newroot, target="candidate", default_operation="replace",
-                    )
-                else:
-                    self.conn.edit_config(
-                        config=configuration,
-                        target="candidate",
-                        default_operation="replace",
-                    )
-                self.conn.validate(source="candidate")
+        self.fmt = self._determine_config_format(configuration)
+        if self.fmt == "xml":
+            # if not self.lock_disable and not self.session_config_lock:
+            #    self._lock_config()
+            configuration = etree.XML(configuration)
+            configuration_tree = etree.ElementTree(configuration)
+            root = configuration_tree.getroot()
+            if root.tag != "{urn:ietf:params:xml:ns:netconf:base:1.0}config":
+                newroot = etree.Element(
+                    "{urn:ietf:params:xml:ns:netconf:base:1.0}config"
+                )
+                newroot.insert(0, root)
+                self.conn.edit_config(
+                    config=newroot, target="candidate", default_operation="replace",
+                )
             else:
-                configuration = configuration.split("\n")
-                configuration.insert(0, "edit-config exclusive")
-                configuration.insert(1, "delete configure")
-                buff = self._perform_cli_commands(configuration, False)
-                # error checking
-                if buff is not None:
-                    for item in buff.split("\n"):
-                        if any(match.search(item) for match in self.terminal_stderr_re):
-                            raise ReplaceConfigException("Replace issue: %s", item)
-        except ReplaceConfigException as rex:
-            print("Replace issue: {}".format(rex))
-            log.error("Replace issue: %s" % traceback.format_exc())
+                self.conn.edit_config(
+                    config=configuration,
+                    target="candidate",
+                    default_operation="replace",
+                )
+            self.conn.validate(source="candidate")
+        else:
+            configuration = configuration.split("\n")
+            configuration.insert(0, "edit-config exclusive")
+            configuration.insert(1, "delete configure")
+            buff = self._perform_cli_commands(configuration, False)
+            # error checking
+            if buff is not None:
+                for item in buff.split("\n"):
+                    if any(match.search(item) for match in self.terminal_stderr_re):
+                        log.error( f"Replace issue: {item}" )
+                        raise ReplaceConfigException("Replace issue: %s", item)
 
     def get_facts(self):
         """
@@ -3810,52 +3779,16 @@ class NokiaSROSDriver(NetworkDriver):
                     "is_critical": True if temp >= temp_thresh else False,
                 }
 
-<<<<<<< HEAD
-            if choice == 1:
-                environment_data["temperature"].update({"cpm": {}})
-                environment_data["temperature"]["cpm"].update(data)
-            elif choice == 2:
-                environment_data["temperature"].update({"card": {}})
-                environment_data["temperature"]["card"].update(data)
-            elif choice == 3:
-                environment_data["temperature"].update({"mda": {}})
-                environment_data["temperature"]["mda"].update(data)
-
-        result = to_ele(
-            self.conn.get(
-                filter=GET_ENVIRONMENT["_"], with_defaults="report-all"
-            ).data_xml
-        )
-        # print( f"JvB: get_environment => {result}" )
-        for fan in result.xpath(
-            "state_ns:state/state_ns:chassis/state_ns:fan", namespaces=self.nsmap
-        ):
-            fan_slot = self._find_txt(fan, "state_ns:fan-slot", namespaces=self.nsmap)
-            oper_state = (
-                self._find_txt(
-                    fan,
-                    "state_ns:hardware-data/state_ns:oper-state",
-                    namespaces=self.nsmap,
-                ) == "in-service"
-=======
-                if choice == 1:
-                    environment_data["temperature"].update({"cpm": {}})
-                    environment_data["temperature"]["cpm"].update(data)
-                elif choice == 2:
-                    environment_data["temperature"].update({"card": {}})
-                    environment_data["temperature"]["card"].update(data)
-                elif choice == 3:
-                    environment_data["temperature"].update({"mda": {}})
-                    environment_data["temperature"]["mda"].update(data)
+                e = { 1: "cpm", 2: "card", 3: "mda" }
+                if choice in e:
+                    environment_data["temperature"][ e[choice] ] = data
 
             result = to_ele(
                 self.conn.get(
                     filter=GET_ENVIRONMENT["_"], with_defaults="report-all"
                 ).data_xml
->>>>>>> 8493122dc8adc12cab98d117ee64a5c5f34f754e
             )
 
-<<<<<<< HEAD
         # get the output of each power-module using MD-CLI
         buff = self._perform_cli_commands(
             [
@@ -3905,7 +3838,7 @@ class NokiaSROSDriver(NetworkDriver):
                     }
                 }
             )
-=======
+
             for fan in result.xpath(
                 "state_ns:state/state_ns:chassis/state_ns:fan", namespaces=self.nsmap
             ):
@@ -3922,7 +3855,6 @@ class NokiaSROSDriver(NetworkDriver):
                     else False
                 )
                 environment_data["fans"].update({fan_slot: {"status": oper_state}})
->>>>>>> 8493122dc8adc12cab98d117ee64a5c5f34f754e
 
             # get the output of each power-module using MD-CLI
             buff = self._perform_cli_commands(
@@ -4006,17 +3938,6 @@ class NokiaSROSDriver(NetworkDriver):
                         namespaces=self.nsmap,
                     ),
                 )
-<<<<<<< HEAD
-                environment_data["cpu"].update({ f"Summary for all CPUs(sample_period={sample_period}s)": { "%usage": cpu_usage }})
-
-            # JvB: available_ram = total available, not remaining
-            environment_data["memory"].update(
-                {"available_ram": available_ram + used_ram, "used_ram": used_ram}
-            )
-        # JvB: debug
-        # print( environment_data )
-        return environment_data
-=======
                 environment_data.update({"cpu": {}})
                 for cpu in result.xpath(
                     "state_ns:state/state_ns:system/state_ns:cpu", namespaces=self.nsmap
@@ -4045,8 +3966,6 @@ class NokiaSROSDriver(NetworkDriver):
         except Exception as e:
             print("Error in method get environment data : {}".format(e))
             log.error("Error in method get environment data : %s" % traceback.format_exc())
-
->>>>>>> 8493122dc8adc12cab98d117ee64a5c5f34f754e
 
     def get_ipv6_neighbors_table(self):
         """
@@ -4315,4 +4234,3 @@ class NokiaSROSDriver(NetworkDriver):
         except Exception as e:
             print("Error in method cli : {}".format(e))
             log.error("Error in method cli : %s" % traceback.format_exc())
-
