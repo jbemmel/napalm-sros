@@ -62,14 +62,11 @@ class NokiaSROSDriver(NetworkDriver):
 
     def __init__(self, hostname, username, password, timeout=60, optional_args=None):
         """Constructor."""
-        self.manager = None
         self.hostname = hostname
         self.username = username
         self.password = password
         self.timeout = timeout
         self.conn = None
-        self.conn_ssh = None
-        self.ssh_channel = None
         self.fmt = None
         self.locked = False
         self.terminal_stdout_re = [
@@ -100,34 +97,26 @@ class NokiaSROSDriver(NetworkDriver):
             "state_ns": "urn:nokia.com:sros:ns:yang:sr:state",
             "configure_ns": "urn:nokia.com:sros:ns:yang:sr:conf",
         }
-        self.optional_args = None
 
     def open(self):
         """Implement the NAPALM method open (mandatory)"""
         # Create a NETCONF connection to the host
         try:
-            if self.manager:
-                self.conn = self.manager.connect()
-            else:
-                self.conn = manager.connect(
-                    host=self.hostname,
-                    port=self.port,
-                    username=self.username,
-                    password=self.password,
-                    hostkey_verify=False,
-                    timeout=self.timeout,
-                )
-        except ConnectionException as ce:
-            print("Error in opening netconf connection : {}".format(ce))
-            log.error(
-                "Error in opening netconf connection : %s" % traceback.format_exc()
+            self.conn = manager.connect(
+                host=self.hostname,
+                port=self.port,
+                username=self.username,
+                password=self.password,
+                hostkey_verify=False,
+                timeout=self.timeout,
             )
+        except ConnectionException as ce:
+            log.error( "ConnectionException during open", exc_info=True )
+            raise
 
         except Exception as e:
-            print("Error in opening netconf connection : {}".format(e))
-            log.error(
-                "Error in opening netconf connection : %s" % traceback.format_exc()
-            )
+            log.error( "general Exception during open", exc_info=True )
+            raise
 
     def close(self):
         """Implement the NAPALM method close (mandatory)"""
@@ -475,11 +464,8 @@ class NokiaSROSDriver(NetworkDriver):
                 if buff is not None:
                     for item in buff.split("\n"):
                         if any(match.search(item) for match in self.terminal_stderr_re):
+                            log.error("Merge issue: %s", item)
                             raise MergeConfigException("Merge issue: %s", item)
-
-        except MergeConfigException as me:
-            print("Merge issue : {}".format(me))
-            log.error("Merge issue : %s" %traceback.format_exc())
 
     def load_replace_candidate(self, filename=None, config=None):
         """
@@ -532,10 +518,8 @@ class NokiaSROSDriver(NetworkDriver):
                 if buff is not None:
                     for item in buff.split("\n"):
                         if any(match.search(item) for match in self.terminal_stderr_re):
+                            log.error("Replace issue: %s", item)
                             raise ReplaceConfigException("Replace issue: %s", item)
-        except ReplaceConfigException as rex:
-            print("Replace issue: {}".format(rex))
-            log.error("Replace issue: %s" % traceback.format_exc())
 
     def get_facts(self):
         """
@@ -4221,4 +4205,3 @@ class NokiaSROSDriver(NetworkDriver):
         except Exception as e:
             print("Error in method cli : {}".format(e))
             log.error("Error in method cli : %s" % traceback.format_exc())
-
