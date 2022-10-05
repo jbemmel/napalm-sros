@@ -1,4 +1,4 @@
-napalm>=3.3.1
+napalm>=4.0.0
 pytest>=5.4.3
 setuptools>=47.3.1
 pip>=20.1.1
