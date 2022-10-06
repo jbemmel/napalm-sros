@@ -3847,6 +3847,7 @@ class NokiaSROSDriver(NetworkDriver):
                 [
                     "environment more false",
                     "show chassis power-management utilization detail",
+                    # JvB: on newer SR OS this is 'power-supply'
                 ],
                 True,
             )

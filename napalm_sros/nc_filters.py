@@ -912,8 +912,61 @@ GET_IPV6_NEIGHBORS_TABLE = {
     """
 }
 
-
 GET_ENVIRONMENT = {
+    "_": """
+    <filter>
+        <state xmlns="urn:nokia.com:sros:ns:yang:sr:state">
+            <chassis>
+            <fan>
+                <fan-slot/>
+                <hardware-data>
+                    <oper-state/>
+                </hardware-data>
+            </fan>
+            <power-supply>
+             <first-power-supply-status/>
+            </power-supply>
+            </chassis>
+            <cpm>
+                <hardware-data>
+                    <temperature/>
+                    <temperature-threshold/>
+                </hardware-data>
+            </cpm>
+            <card>
+                <hardware-data>
+                    <temperature/>
+                    <temperature-threshold/>
+                </hardware-data>
+                <mda>
+                    <hardware-data>
+                        <temperature/>
+                        <temperature-threshold/>
+                    </hardware-data>
+                </mda>
+            </card>
+            <system>
+                <memory-pools>
+                    <summary>
+                        <available-memory/>
+                        <total-in-use/>
+                    </summary>
+                </memory-pools>
+                <cpu>
+                    <summary>
+                        <usage>
+                            <cpu-usage/>
+                        </usage>
+                    </summary>
+                </cpu>
+            </system>
+        </state>
+    </filter>
+    """
+}
+
+# Issue: 'power-shelf' not available in VSR 21.10.R1
+GET_ENVIRONMENT_ORIG = {
     "_": """
     <filter>
         <state xmlns="urn:nokia.com:sros:ns:yang:sr:state">
