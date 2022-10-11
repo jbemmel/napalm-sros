@@ -618,7 +618,7 @@ class NokiaSROSDriver(NetworkDriver):
                is_enabled (True/False)
                description (string)
                last_flapped (float in seconds)
-               speed (int in Mbit)
+               speed (float in Mbit)
                MTU (in Bytes)
                mac_address (string)
          """
@@ -647,7 +647,7 @@ class NokiaSROSDriver(NetworkDriver):
                     else False
                 )
                 pd["speed"] = convert(
-                    int,
+                    float,
                     self._find_txt(
                         port, "state_ns:ethernet/state_ns:oper-speed", namespaces=self.nsmap
                     ),
@@ -759,11 +759,11 @@ class NokiaSROSDriver(NetworkDriver):
                 ifd["mac_address"] = if_mac
 
                 # speed is a port inherited value
-                if_speed = -1  # default value for system/loopback interface
+                if_speed = -1.0  # default value for system/loopback interface
                 if if_port:
                     if if_port_state_block is not None and len(if_port_state_block) > 0:
                         if_speed = convert(
-                            int,
+                            float,
                             self._find_txt(
                                 if_port_state_block,
                                 "state_ns:ethernet/state_ns:oper-speed",
