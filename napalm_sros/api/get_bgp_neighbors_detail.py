@@ -156,10 +156,11 @@ def get_bgp_neighbors_detail(conn,neighbor_address=""):
   )
   if log.isEnabledFor(logging.DEBUG):
     log.debug(to_xml(data, pretty_print=True))
+  print( to_xml(data, pretty_print=True) )
   result = {}
   for n in data.xpath("//configure_ns:neighbor",namespaces=NSMAP):
-    name = _find_txt( n, "../../configure_ns:service-name" ) or "global"
-    as_number = _find_txt( n, "../../configure_ns:autonomous-system" )
+    name = _find_txt(n, "../../configure_ns:service-name") or "global"
+    as_number = convert(int, _find_txt( n, "../../configure_ns:autonomous-system" ))
 
     if name not in result:
       result[name] = { as_number: [] }
