@@ -2820,38 +2820,20 @@ class NokiaSROSDriver(NetworkDriver):
                         "state_ns:statistics/state_ns:session-state",
                         namespaces=self.nsmap,
                     )
-                    active_ipv4 = convert(
-                        int,
-                        self._find_txt(
-                            bgp_neighbor,
-                            "state_ns:statistics/state_ns:family-prefix/state_ns:ipv4/state_ns:active",
-                            namespaces=self.nsmap,
-                        ),
-                    )
-                    suppressed_ipv4 = convert(
-                        int,
-                        self._find_txt(
-                            bgp_neighbor,
-                            "state_ns:statistics/state_ns:family-prefix/state_ns:ipv4/state_ns:suppressed",
-                            namespaces=self.nsmap,
-                        ),
-                    )
-                    advertised_ipv4 = convert(
-                        int,
-                        self._find_txt(
-                            bgp_neighbor,
-                            "state_ns:statistics/state_ns:family-prefix/state_ns:ipv4/state_ns:sent",
-                            namespaces=self.nsmap,
-                        ),
-                    )
-                    received_ipv4 = convert(
-                        int,
-                        self._find_txt(
-                            bgp_neighbor,
-                            "state_ns:statistics/state_ns:family-prefix/state_ns:ipv4/state_ns:received",
-                            namespaces=self.nsmap,
-                        ),
-                    )
+
+                    stats = {}
+                    for attr in ['active','suppressed','rejected','sent','received']:
+                      stats[attr] = {}
+                      for af in ('ipv4','ipv6'):
+                        stats[attr][af] = convert(
+                            int,
+                            self._find_txt(
+                                bgp_neighbor,
+                                f"state_ns:statistics/state_ns:family-prefix/state_ns:{af}/state_ns:{attr}",
+                                namespaces=self.nsmap,
+                            )
+                      stats[attr]['total'] = stats[attr]['ipv4'] + stats[attr]['ipv6']
+
                     neighbor_details = {
                         "router_id": instance_id,
                         "up": True if session_state.lower() == "established" else False,
@@ -2882,7 +2864,16 @@ class NokiaSROSDriver(NetworkDriver):
                                 namespaces=self.nsmap,
                             ),
                         ),
-                        "remote_address": ip_address,
+                        "remote_address": self._find_txt(
+                            bgp_neighbor,
+                            "state_ns:statistics/state_ns:operational-remote-address",
+                            namespaces=self.nsmap,
+                        ),
+                        "local_address": self._find_txt(
+                            bgp_neighbor,
+                            "state_ns:statistics/state_ns:operational-local-address",
+                            namespaces=self.nsmap,
+                        ),
                         "configured_keepalive": convert(
                             int,
                             self._find_txt(
@@ -2940,47 +2931,11 @@ class NokiaSROSDriver(NetworkDriver):
                                 namespaces=self.nsmap,
                             ),
                         ),
-                        "active_prefix_count": active_ipv4
-                        if active_ipv4
-                        else convert(
-                            int,
-                            self._find_txt(
-                                bgp_neighbor,
-                                "state_ns:statistics/state_ns:family-prefix/state_ns:ipv6/state_ns:active",
-                                namespaces=self.nsmap,
-                            ),
-                        ),
-                        "suppressed_prefix_count": suppressed_ipv4
-                        if suppressed_ipv4
-                        else convert(
-                            int,
-                            self._find_txt(
-                                bgp_neighbor,
-                                "state_ns:statistics/state_ns:family-prefix/state_ns:ipv6/state_ns:suppressed",
-                                namespaces=self.nsmap,
-                            ),
-                        ),
-                        "advertised_prefix_count": advertised_ipv4
-                        if advertised_ipv4
-                        else convert(
-                            int,
-                            self._find_txt(
-                                bgp_neighbor,
-                                "state_ns:statistics/state_ns:family-prefix/state_ns:ipv6/state_ns:sent",
-                                namespaces=self.nsmap,
-                            ),
-                        ),
-                        "received_prefix_count": received_ipv4
-                        if received_ipv4
-                        else convert(
-                            int,
-                            self._find_txt(
-                                bgp_neighbor,
-                                "state_ns:statistics/state_ns:family-prefix/state_ns:ipv6/state_ns:received",
-                                namespaces=self.nsmap,
-                            ),
-                        ),
-                        "accepted_prefix_count": -1,  # SROS does not have accepted prefixes
+                        "active_prefix_count": stats['active']['total'],
+                        "suppressed_prefix_count": stats['suppressed']['total'],
+                        "advertised_prefix_count": stats['sent']['total'],
+                        "received_prefix_count": stats['received']['total'],
+                        "accepted_prefix_count": stats['received']['total'] - stats['rejected']['total'],
                     }
                     for k, v in bgp_neighbor_detail.items():
                         if isinstance(v, dict):
@@ -3062,14 +3017,14 @@ class NokiaSROSDriver(NetworkDriver):
                             )
                             > 0
                             else False,
-                            "multipath": True
+                            "multipath": False
                             if self._find_txt(
                                 bgp_neighbor,
                                 "configure_ns:multipath-eligible",
                                 namespaces=self.nsmap,
                             )
-                            == "true"
-                            else False,
+                            == "false"
+                            else True,
                             "suppress_4byte_as": True
                             if not convert(
                                 bool,
@@ -3078,6 +3033,7 @@ class NokiaSROSDriver(NetworkDriver):
                                     "configure_ns:asn-4-byte",
                                     namespaces=self.nsmap,
                                 ),
+                                default=True
                             )
                             else False,
                             "keepalive": convert(
