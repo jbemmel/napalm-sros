@@ -2882,11 +2882,7 @@ class NokiaSROSDriver(NetworkDriver):
                                 namespaces=self.nsmap,
                             ),
                         ),
-                        "remote_address": self._find_txt(
-                            bgp_neighbor,
-                            "state_ns:statistics/state_ns:peer-identifier",
-                            namespaces=self.nsmap,
-                        ),
+                        "remote_address": ip_address,
                         "configured_keepalive": convert(
                             int,
                             self._find_txt(
@@ -3043,9 +3039,7 @@ class NokiaSROSDriver(NetworkDriver):
                     bgp_neighbor_detail[instance_name][as_number(peer_as)].append(
                         {
                             "local_address": local_address,
-                            "local_address_configured": True
-                            if local_address == ""
-                            else False,
+                            "local_address_configured": local_address != "",
                             "local_as": as_number(local_as),
                             "remote_as": as_number(peer_as),
                             "local_as_prepend": True
@@ -3847,7 +3841,7 @@ class NokiaSROSDriver(NetworkDriver):
                 [
                     "environment more false",
                     "show chassis power-management utilization detail",
-                    # JvB: on newer SR OS this is 'power-supply'
+                    # JvB: on VSR this is 'power-supply'
                 ],
                 True,
             )
