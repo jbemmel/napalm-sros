@@ -8,60 +8,18 @@
         "remote_id": "10.0.0.3",
         "is_up": true,
         "is_enabled": true,
-        "description": "Dynamic neighbor",
-        "uptime": 3295,
+        "description": "Twitter",
+        "uptime": 4036,
         "address_family": {
           "ipv4": {
-            "received_prefixes": 3,
-            "accepted_prefixes": 2,
-            "sent_prefixes": 5
-          },
-          "ipv6": {
-            "received_prefixes": 0,
-            "accepted_prefixes": 0,
-            "sent_prefixes": 0
-          }
-        }
-      },
-      "80.81.193.202": {
-        "local_as": 12552,
-        "remote_as": 714,
-        "remote_id": "10.0.0.4",
-        "is_up": true,
-        "is_enabled": true,
-        "description": "Apple",
-        "uptime": 4888,
-        "address_family": {
-          "ipv4": {
-            "received_prefixes": 3,
-            "accepted_prefixes": 1,
-            "sent_prefixes": 5
-          },
-          "ipv6": {
-            "received_prefixes": 0,
-            "accepted_prefixes": 0,
-            "sent_prefixes": 0
-          }
-        }
-      },
-      "2001:7f8::2ca:0:1": {
-        "local_as": 12552,
-        "remote_as": 714,
-        "remote_id": "10.0.0.4",
-        "is_up": true,
-        "is_enabled": true,
-        "description": "Apple",
-        "uptime": 4888,
-        "address_family": {
-          "ipv4": {
-            "received_prefixes": 0,
-            "accepted_prefixes": 0,
-            "sent_prefixes": 0
-          },
-          "ipv6": {
             "received_prefixes": 1,
+            "accepted_prefixes": 1,
+            "sent_prefixes": 3
+          },
+          "ipv6": {
+            "received_prefixes": 0,
             "accepted_prefixes": 0,
-            "sent_prefixes": 2
+            "sent_prefixes": 0
           }
         }
       },
@@ -72,7 +30,7 @@
         "is_up": true,
         "is_enabled": true,
         "description": "Twitter",
-        "uptime": 4888,
+        "uptime": 4036,
         "address_family": {
           "ipv4": {
             "received_prefixes": 0,
@@ -80,9 +38,9 @@
             "sent_prefixes": 0
           },
           "ipv6": {
-            "received_prefixes": 1,
-            "accepted_prefixes": 1,
-            "sent_prefixes": 2
+            "received_prefixes": 0,
+            "accepted_prefixes": 0,
+            "sent_prefixes": 1
           }
         }
       }
@@ -98,7 +56,7 @@
         "is_up": true,
         "is_enabled": true,
         "description": "Twitter",
-        "uptime": 4887,
+        "uptime": 26957,
         "address_family": {
           "ipv4": {
             "received_prefixes": 0,

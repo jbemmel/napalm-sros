@@ -1,38 +1,14 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<data xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0">
+<data>
     <configure xmlns="urn:nokia.com:sros:ns:yang:sr:conf" xmlns:nokia-attr="urn:nokia.com:sros:ns:yang:sr:attributes">
         <router>
             <router-name>Base</router-name>
             <autonomous-system>12552</autonomous-system>
             <bgp>
-                <group>
-                    <group-name>ebgp</group-name>
-                    <local-as>
-                    </local-as>
-                    <dynamic-neighbor>
-                        <match>
-                            <prefix>
-                                <ip-prefix>80.81.192.0/22</ip-prefix>
-                                <allowed-peer-as>13414</allowed-peer-as>
-                            </prefix>
-                        </match>
-                    </dynamic-neighbor>
-                </group>
                 <neighbor>
-                    <ip-address>80.81.193.202</ip-address>
+                    <ip-address>80.81.192.10</ip-address>
                     <admin-state>enable</admin-state>
-                    <description>Apple</description>
-                    <group>ebgp</group>
-                    <peer-as>714</peer-as>
-                    <local-as>
-                    </local-as>
-                </neighbor>
-                <neighbor>
-                    <ip-address>2001:7f8::2ca:0:1</ip-address>
-                    <admin-state>enable</admin-state>
-                    <description>Apple</description>
-                    <group>ebgp</group>
-                    <peer-as>714</peer-as>
+                    <description>Twitter</description>
+                    <peer-as>13414</peer-as>
                     <local-as>
                     </local-as>
                 </neighbor>
@@ -40,32 +16,24 @@
                     <ip-address>2001:7f8::3466:0:1</ip-address>
                     <admin-state>enable</admin-state>
                     <description>Twitter</description>
-                    <group>ebgp</group>
                     <peer-as>13414</peer-as>
                     <local-as>
                     </local-as>
                 </neighbor>
             </bgp>
         </router>
+        <router>
+            <router-name>management</router-name>
+        </router>
         <service>
             <vprn>
                 <service-name>test</service-name>
                 <autonomous-system>12552</autonomous-system>
                 <bgp>
-                    <group>
-                        <group-name>ebgp</group-name>
-                        <local-as>
-                        </local-as>
-                        <dynamic-neighbor>
-                            <match>
-                            </match>
-                        </dynamic-neighbor>
-                    </group>
                     <neighbor>
                         <ip-address>10.1.0.2</ip-address>
                         <admin-state>enable</admin-state>
                         <description>Twitter</description>
-                        <group>ebgp</group>
                         <peer-as>13414</peer-as>
                         <local-as>
                         </local-as>
@@ -82,63 +50,19 @@
                 <neighbor>
                     <ip-address>80.81.192.10</ip-address>
                     <statistics>
-                        <peer-as>13414</peer-as>
                         <session-state>Established</session-state>
                         <peer-identifier>10.0.0.3</peer-identifier>
-                        <last-established-time>2022-10-17T00:42:13.0Z</last-established-time>
-                        <dynamically-configured>true</dynamically-configured>
+                        <last-established-time>2022-10-12T01:07:50.6Z</last-established-time>
                         <family-prefix>
                             <ipv4>
-                                <received>3</received>
-                                <active>2</active>
-                                <sent>5</sent>
-                            </ipv4>
-                            <ipv6>
-                                <received>0</received>
-                                <active>0</active>
-                                <sent>0</sent>
-                            </ipv6>
-                        </family-prefix>
-                    </statistics>
-                </neighbor>
-                <neighbor>
-                    <ip-address>80.81.193.202</ip-address>
-                    <statistics>
-                        <session-state>Established</session-state>
-                        <peer-identifier>10.0.0.4</peer-identifier>
-                        <last-established-time>2022-10-17T00:15:40.0Z</last-established-time>
-                        <dynamically-configured>false</dynamically-configured>
-                        <family-prefix>
-                            <ipv4>
-                                <received>3</received>
-                                <active>1</active>
-                                <sent>5</sent>
-                            </ipv4>
-                            <ipv6>
-                                <received>0</received>
-                                <active>0</active>
-                                <sent>0</sent>
-                            </ipv6>
-                        </family-prefix>
-                    </statistics>
-                </neighbor>
-                <neighbor>
-                    <ip-address>2001:7f8::2ca:0:1</ip-address>
-                    <statistics>
-                        <session-state>Established</session-state>
-                        <peer-identifier>10.0.0.4</peer-identifier>
-                        <last-established-time>2022-10-17T00:15:40.0Z</last-established-time>
-                        <dynamically-configured>false</dynamically-configured>
-                        <family-prefix>
-                            <ipv4>
-                                <received>0</received>
-                                <active>0</active>
-                                <sent>0</sent>
-                            </ipv4>
-                            <ipv6>
                                 <received>1</received>
+                                <active>1</active>
+                                <sent>3</sent>
+                            </ipv4>
+                            <ipv6>
+                                <received>0</received>
                                 <active>0</active>
-                                <sent>2</sent>
+                                <sent>0</sent>
                             </ipv6>
                         </family-prefix>
                     </statistics>
@@ -148,8 +72,7 @@
                     <statistics>
                         <session-state>Established</session-state>
                         <peer-identifier>10.0.0.3</peer-identifier>
-                        <last-established-time>2022-10-17T00:15:40.0Z</last-established-time>
-                        <dynamically-configured>false</dynamically-configured>
+                        <last-established-time>2022-10-12T01:07:50.6Z</last-established-time>
                         <family-prefix>
                             <ipv4>
                                 <received>0</received>
@@ -157,18 +80,14 @@
                                 <sent>0</sent>
                             </ipv4>
                             <ipv6>
-                                <received>1</received>
-                                <active>1</active>
-                                <sent>2</sent>
+                                <received>0</received>
+                                <active>0</active>
+                                <sent>1</sent>
                             </ipv6>
                         </family-prefix>
                     </statistics>
                 </neighbor>
             </bgp>
-        </router>
-        <router>
-            <router-name>management</router-name>
-            <oper-router-id>10.0.0.2</oper-router-id>
         </router>
         <service>
             <vprn>
@@ -180,8 +99,7 @@
                         <statistics>
                             <session-state>Established</session-state>
                             <peer-identifier>10.0.0.3</peer-identifier>
-                            <last-established-time>2022-10-17T00:15:41.0Z</last-established-time>
-                            <dynamically-configured>false</dynamically-configured>
+                            <last-established-time>2022-10-11T18:45:49.6Z</last-established-time>
                             <family-prefix>
                                 <ipv4>
                                     <received>0</received>
@@ -200,7 +118,7 @@
             </vprn>
         </service>
         <system>
-            <current-time>2022-10-17T01:37:08.0Z</current-time>
+            <current-time>2022-10-12T02:15:06.6Z</current-time>
         </system>
     </state>
 </data>
