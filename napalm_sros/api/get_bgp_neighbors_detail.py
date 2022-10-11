@@ -159,10 +159,7 @@ def get_bgp_neighbors_detail(conn,neighbor_address=""):
   result = {}
   for n in data.xpath("//configure_ns:neighbor",namespaces=NSMAP):
     name = _find_txt(n, "../../configure_ns:service-name") or "global"
-    as_number = convert(int, _find_txt( n, "../../configure_ns:autonomous-system" ))
-
-    if name not in result:
-      result[name] = { as_number: [] }
+    local_as = convert(int, _find_txt( n, "../../configure_ns:autonomous-system" ))
 
     ip_address = _find_txt( n, "configure_ns:ip-address" )
     stats = data.xpath( f"//state_ns:ip-address[ text()='{ip_address}']/..", namespaces=NSMAP)
@@ -203,7 +200,7 @@ def get_bgp_neighbors_detail(conn,neighbor_address=""):
 
     peer = {
       'up': session_state.lower()=="established",
-      'local_as': convert(int,as_number),
+      'local_as': convert(int,local_as),
       'remote_as': conf_int('peer-as'),
       'router_id': state_str('peer-identifier'),
       'local_address': state_str('operational-local-address'),
@@ -238,7 +235,10 @@ def get_bgp_neighbors_detail(conn,neighbor_address=""):
       'advertised_prefix_count': count['sent']['total'],
       'flap_count': state_int('number-of-update-flaps')
     }
-    result[name][as_number].append(peer)
+
+    if name not in result:
+      result[name] = { peer['remote_as']: [] }
+    result[name][ peer['remote_as'] ].append(peer)
 
   return result
 
