@@ -20,7 +20,6 @@
 # the License.
 
 import logging
-import sys
 
 from ncclient.xml_ import to_xml, to_ele
 from napalm.base.helpers import convert
@@ -147,8 +146,6 @@ def get_bgp_neighbors_detail(conn,neighbor_address=""):
   data = to_ele(
       conn.get(
           filter=GET_BGP_NEIGHBORS_DETAILS.format(
-              # NEIGHBOR_CONF=NEIGHBOR_CONF,
-              NEIGHBOR_STATS=NEIGHBOR_STATS,
               neighbor_address=neighbor_address
           ),
           with_defaults="report-all",
@@ -241,16 +238,3 @@ def get_bgp_neighbors_detail(conn,neighbor_address=""):
     result[name][ peer['remote_as'] ].append(peer)
 
   return result
-
-if __name__ == '__main__':
-  LOG_FORMAT = '%(asctime)s %(levelname)s %(filename)s:%(lineno)d %(message)s'
-  logging.basicConfig(stream=sys.stdout, level=logging.INFO, format=LOG_FORMAT)
-
-  from ncclient import manager
-
-  with manager.connect(host="192.168.121.102", port=830,
-        username='admin', password='admin',
-        device_params={'name': 'sros'},
-        hostkey_verify=False) as m:
-    result = get_bgp_neighbors_detail(m)
-    logging.info(result)
