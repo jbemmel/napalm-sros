@@ -2832,6 +2832,7 @@ class NokiaSROSDriver(NetworkDriver):
                                 f"state_ns:statistics/state_ns:family-prefix/state_ns:{af}/state_ns:{attr}",
                                 namespaces=self.nsmap,
                             )
+                        )
                       stats[attr]['total'] = stats[attr]['ipv4'] + stats[attr]['ipv6']
 
                     neighbor_details = {
