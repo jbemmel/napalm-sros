@@ -2515,6 +2515,7 @@ class NokiaSROSDriver(NetworkDriver):
         except Exception as e:
           print(e)
           log.error("Error in method get bgp neighbors : %s" % traceback.format_exc())
+          return {}
 
     def get_bgp_neighbors_detail(self, neighbor_address=""):
         """
@@ -2565,6 +2566,7 @@ class NokiaSROSDriver(NetworkDriver):
         except Exception as e:
           print(e)
           log.error("Error in method get bgp neighbors detail : %s" % traceback.format_exc())
+          return {}
 
     def get_bgp_config(self, group="", neighbor=""):
         """

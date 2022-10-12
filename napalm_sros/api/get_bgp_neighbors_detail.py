@@ -230,7 +230,9 @@ def get_bgp_neighbors_detail(conn,neighbor_address=""):
     }
 
     if name not in result:
-      result[name] = { peer['remote_as']: [] }
+      result[name] = {}
+    if peer['remote_as'] not in result[name]:
+      result[name][ peer['remote_as'] ] = []
     result[name][ peer['remote_as'] ].append(peer)
 
   return result

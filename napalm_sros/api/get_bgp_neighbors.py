@@ -186,6 +186,6 @@ def get_bgp_neighbors(conn):
         }
       }
     }
-    result[name][ 'peers' ][ip_address] = peer
+    result[name]['peers'][ip_address] = peer
 
   return result
