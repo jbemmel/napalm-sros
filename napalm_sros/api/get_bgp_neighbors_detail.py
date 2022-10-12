@@ -59,7 +59,6 @@ NEIGHBOR_CONF = """
 """
 
 NEIGHBOR_STATS = """
-<oper-router-id/>
 <bgp>
 <neighbor>
 <ip-address>{neighbor_address}</ip-address>
@@ -127,12 +126,10 @@ GET_BGP_NEIGHBORS_DETAILS = """
         </configure>
         <state xmlns="urn:nokia.com:sros:ns:yang:sr:state">
             <router>
-                <router-name/>
                 """+NEIGHBOR_STATS+"""
             </router>
             <service>
                 <vprn>
-                    <service-name/>
                     """+NEIGHBOR_STATS+"""
                 </vprn>
             </service>
@@ -197,7 +194,7 @@ def get_bgp_neighbors_detail(conn,neighbor_address=""):
 
     peer = {
       'up': session_state.lower()=="established",
-      'local_as': convert(int,local_as),
+      'local_as': local_as,
       'remote_as': conf_int('peer-as'),
       'router_id': state_str('peer-identifier'),
       'local_address': state_str('operational-local-address'),
