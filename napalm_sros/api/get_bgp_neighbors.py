@@ -5,7 +5,6 @@
 # Licensed under the Apache License 2.0 License
 # SPDX-License-Identifier: Apache-2.0
 
-# Copyright 2016 Dravetech AB. All rights reserved.
 #
 # The contents of this file are licensed under the Apache License, Version 2.0
 # (the "License"); you may not use this file except in compliance with the
@@ -144,7 +143,8 @@ def get_bgp_neighbors(conn):
 
     def to_timestamp(time:str):
       if time:
-        return datetime.datetime.strptime(time, "%Y-%m-%dT%H:%M:%S.%fZ").timestamp()
+        # Remove 'Z' timezone
+        return datetime.datetime.strptime(time[:-1], "%Y-%m-%dT%H:%M:%S.%f").timestamp()
       return 0
 
     session_state = state_str('session-state')
