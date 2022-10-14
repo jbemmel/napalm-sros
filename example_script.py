@@ -1,11 +1,14 @@
 from napalm import get_network_driver
+import json
 
 driver = get_network_driver("sros")
 optional_args = {'port': 830}
-device = driver("127.0.0.1", "admin", "admin", 60, optional_args)
+device = driver("192.168.121.102", "admin", "admin", 60, optional_args)
 device.open()
-print(device.get_facts())
-print(device.get_optics())
+#print(device.get_facts())
+#print(device.get_optics())
+print(json.dumps(device.get_bgp_neighbors(),indent=4))
+print(device.get_bgp_neighbors_detail())
 device.close()
 
 
