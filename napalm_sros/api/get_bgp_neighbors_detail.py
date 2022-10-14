@@ -23,6 +23,7 @@ import logging
 from ncclient.xml_ import to_xml, to_ele
 from napalm.base.helpers import convert
 from .util import _find_txt, NSMAP
+from .bgp_neighbor import BGPNeighbor
 
 #
 # Netconf filters to retrieve only required attributes

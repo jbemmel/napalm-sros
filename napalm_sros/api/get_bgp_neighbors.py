@@ -136,25 +136,7 @@ def get_bgp_neighbors(conn):
     result[ name ] = { 'router_id': router_id, 'peers': {} }
 
   # Iterate over neighbors found in state - this may include dynamic neighbors
-  for n in data.xpath("//state_ns:neighbor",namespaces=NSMAP):
-    name = _find_txt(n, "../../state_ns:service-name") or "global"
-    if name=="global":
-      base_path = "//configure_ns:router/configure_ns:router-name[ text() = 'Base' ]"
-    else:
-      base_path = f"//configure_ns:vprn/configure_ns:service-name[ text() = '{name}' ]"
-
-    # Note: Could be overridden by local AS, determined below
-    node_as = convert(int, _find_txt( n, base_path + "/../configure_ns:autonomous-system" ))
-
-    ip_address = _find_txt( n, "state_ns:ip-address" )
-
-    nb = BGPNeighbor(ip_address,data)
-
-    def state_int(attr: str,default=0):
-      return convert( int, _find_txt(n,f"state_ns:statistics/state_ns:{attr}")) or default
-
-    def state_str(attr: str):
-      return _find_txt(n,f"state_ns:statistics/state_ns:{attr}")
+  for nb in BGPNeighbor.list(data):
 
     def to_timestamp(time:str):
       if time:
@@ -162,29 +144,16 @@ def get_bgp_neighbors(conn):
         return datetime.datetime.strptime(time[:-1], "%Y-%m-%dT%H:%M:%S.%f").timestamp()
       return 0
 
-    session_state = state_str('session-state')
-    router_id = _find_txt( n, "../../state_ns:oper-router-id" )
+    count = nb.counters(attrs=['received','active','sent'])
 
-    count = {}
-    for attr in ['received','active','sent']:
-      count[attr] = {}
-      for af in ('ipv4','ipv6'):
-        count[attr][af] = convert(
-            int,
-            _find_txt(
-                n,
-                f"state_ns:statistics/state_ns:family-prefix/state_ns:{af}/state_ns:{attr}"
-            )
-        )
-
-    last_established_time = to_timestamp(state_str('last-established-time'))
+    last_established_time = to_timestamp(nb.state_str('last-established-time'))
     uptime = to_timestamp(current_time_str) - last_established_time
-    is_dynamic = state_str('dynamically-configured')=="true"
+    is_dynamic = nb.state_str('dynamically-configured')=="true"
     peer = {
-      'local_as': nb.local_as() or node_as,
-      'remote_as': state_int('peer-as') if is_dynamic else nb.conf_int('peer-as'),
-      'remote_id': state_str('peer-identifier'),
-      'is_up': session_state.lower()=="established",
+      'local_as': nb.local_as(),
+      'remote_as': nb.state_int('peer-as') if is_dynamic else nb.conf_int('peer-as'),
+      'remote_id': nb.state_str('peer-identifier'),
+      'is_up': nb.state_str('session-state').lower()=="established",
       'is_enabled': nb.conf_str('admin-state') == "enable" or is_dynamic,
       'description': "Dynamic neighbor" if is_dynamic else nb.conf_str('description'),
       'uptime': convert(int,uptime), # Current or time since down if is_up=False
@@ -201,6 +170,6 @@ def get_bgp_neighbors(conn):
         }
       }
     }
-    result[name]['peers'][ip_address] = peer
+    result[nb.vrf]['peers'][nb.ip_address] = peer
 
   return result
