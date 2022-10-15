@@ -1,5 +1,6 @@
 import netaddr
 from napalm.base.helpers import convert
+from ncclient.xml_ import to_xml, to_ele
 from .util import NSMAP, _find_txt
 
 class BGPNeighbor:
@@ -27,6 +28,7 @@ class BGPNeighbor:
     self.node_as = node_as
     self.vrf = vrf
     self.conf = data.xpath( f"//configure_ns:ip-address[ text()='{ip_address}']/..", namespaces=NSMAP)
+    print( f"BGPNeighbor({self.ip_address}): { to_xml(self.conf[0],pretty_print=True) if self.conf else 'dynamic' })" )
 
   def state_int(self,attr: str,default=0):
     return convert( int, _find_txt(self.state,f"state_ns:statistics/state_ns:{attr}")) or default
@@ -41,6 +43,15 @@ class BGPNeighbor:
     if self.conf:
       return convert( int, _find_txt(self.conf[0],f"configure_ns:{attr}")) or default
     return default
+
+  def conf_bool(self,attr:str):
+    return self.conf_str(attr).lower() == "true"
+
+  def conf_list(self,attr:str):
+    if self.conf:
+      policies = [ele.text for ele in self.conf[0].xpath(attr,namespaces=NSMAP)]
+      return ",".join(policies)
+    return ""
 
   def router_id(self) -> str:
     return _find_txt( self.state, "../../state_ns:oper-router-id" )
@@ -65,8 +76,9 @@ class BGPNeighbor:
     if self.conf:
       local_as = _find_txt(self.conf[0],"//configure_ns:as-number")
       if not local_as:
-        group = self.conf_str("group")
-        group_conf = self.conf[0].xpath(f"../configure_ns:group/configure_ns:group-name[text()={g}]/..", namespaces=NSMAP)
+        group = _find_txt(self.conf[0],"//configure_ns:group")
+        print( f"local_as ({self.ip_address}) ({to_xml(self.conf[0],pretty_print=True)})-> group {group} try ../configure_ns:group/configure_ns:group-name[text()='{group}']/.." )
+        group_conf = self.conf[0].xpath(f"../configure_ns:group/configure_ns:group-name[text()='{group}']/..", namespaces=NSMAP)
         local_as = _find_txt(group_conf[0],"//configure_ns:as-number")
     else: # dynamic neighbor
       for p in self.data.xpath("//configure_ns:ip-prefix",namespaces=NSMAP):

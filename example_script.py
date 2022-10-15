@@ -7,8 +7,6 @@ device = driver("192.168.121.102", "admin", "admin", 60, optional_args)
 device.open()
 #print(device.get_facts())
 #print(device.get_optics())
-print(json.dumps(device.get_bgp_neighbors(),indent=4))
-print(device.get_bgp_neighbors_detail())
+print(json.dumps(device.get_bgp_neighbors(),indent=2))
+print(json.dumps(device.get_bgp_neighbors_detail(),indent=2))
 device.close()
-
-
