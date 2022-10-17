@@ -101,15 +101,21 @@ class BGPNeighbor:
     return count
 
   def local_as(self) -> int:
+    """
+    Returns local AS number as determined by configuration, accounting for override
+    at neighbor or group level. Default: global AS
+    """
     local_as = 0
     if self.conf:
       local_as = _find_txt(self.conf[0],"//configure_ns:as-number")
     if not local_as and self.group_conf: # dynamic neighbor
       local_as = _find_txt(self.group_conf[0],"//configure_ns:as-number")
-
     return convert( int, local_as ) or self.node_as
 
   def conf_policies(self,attr:str) -> str:
+    """
+    Returns import or export policies configured at neighbor or group level
+    """
     sources = [ self.conf[0] ] if self.conf else []
     if self.group_conf:
       sources.append( self.group_conf[0] )
