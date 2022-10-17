@@ -36,6 +36,8 @@ NEIGHBOR_CONF = """
      <as-number/>
     </local-as>
     <dynamic-neighbor/>
+    <import/>
+    <export/>
     </group>
     <neighbor>
         <ip-address>{neighbor_address}</ip-address>
@@ -77,6 +79,7 @@ NEIGHBOR_STATS = """
     <local-port/>
     <peer-identifier/>
     <peer-port/>
+    <peer-as/>
     <operational-local-address/>
     <operational-remote-address/>
     <last-state/>
@@ -93,6 +96,7 @@ NEIGHBOR_STATS = """
         <updates/>
         <queues/>
     </sent>
+    <dynamically-configured/>
     <family-prefix>
         <ipv4>
             <active/>
@@ -164,7 +168,7 @@ def get_bgp_neighbors_detail(conn,neighbor_address=""):
     peer = {
       'up': session_state.lower()=="established",
       'local_as': nb.local_as(),
-      'remote_as': nb.conf_int('peer-as'),
+      'remote_as': nb.state_int('peer-as') or nb.conf_int('peer-as'),
       'router_id': nb.state_str('peer-identifier'),
       'local_address': nb.state_str('operational-local-address'),
       'routing_table': nb.vrf,
@@ -175,8 +179,8 @@ def get_bgp_neighbors_detail(conn,neighbor_address=""):
       'multihop': nb.conf_int('multihop') > 0,
       'multipath': nb.conf_str('multipath-eligible') != "false",
       'remove_private_as': nb.conf_bool('remove-private/configure_ns:limited'),
-      'import_policy': nb.conf_list('import/configure_ns:policy'),
-      'export_policy': nb.conf_list('export/configure_ns:policy'),
+      'import_policy': nb.conf_policies('import/configure_ns:policy'),
+      'export_policy': nb.conf_policies('export/configure_ns:policy'),
       'input_messages': nb.state_int('received/state_ns:messages'),
       'output_messages': nb.state_int('sent/state_ns:messages'),
       'input_updates': nb.state_int('received/state_ns:updates'),
