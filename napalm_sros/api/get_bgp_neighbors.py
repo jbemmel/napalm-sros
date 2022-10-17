@@ -119,7 +119,6 @@ def get_bgp_neighbors(conn):
   )
   if log.isEnabledFor(logging.DEBUG):
     log.debug(to_xml(data, pretty_print=True))
-  print( to_xml(data, pretty_print=True) )
 
   current_time_str = _find_txt(data,'//state_ns:system/state_ns:current-time')
 

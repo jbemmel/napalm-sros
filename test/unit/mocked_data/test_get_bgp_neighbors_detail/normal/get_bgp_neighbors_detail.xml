@@ -1,198 +1,332 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <data xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0">
-        <configure xmlns="urn:nokia.com:sros:ns:yang:sr:conf" xmlns:nokia-attr="urn:nokia.com:sros:ns:yang:sr:attributes">
-            <router>
-                <router-name>Base</router-name>
+    <configure xmlns="urn:nokia.com:sros:ns:yang:sr:conf" xmlns:nokia-attr="urn:nokia.com:sros:ns:yang:sr:attributes">
+        <router>
+            <router-name>Base</router-name>
+            <autonomous-system>12552</autonomous-system>
+            <bgp>
+                <group>
+                    <group-name>ebgp</group-name>
+                    <local-as>
+                    </local-as>
+                    <import>
+                        <policy>accept_all</policy>
+                    </import>
+                    <export>
+                        <policy>accept_all</policy>
+                    </export>
+                    <dynamic-neighbor>
+                        <match>
+                            <prefix>
+                                <ip-prefix>80.81.192.0/22</ip-prefix>
+                                <allowed-peer-as>13414</allowed-peer-as>
+                            </prefix>
+                        </match>
+                    </dynamic-neighbor>
+                </group>
+                <neighbor>
+                    <ip-address>80.81.193.202</ip-address>
+                    <admin-state>enable</admin-state>
+                    <description>Apple</description>
+                    <group>ebgp</group>
+                    <peer-as>714</peer-as>
+                    <hold-time>
+                        <minimum-hold-time>0</minimum-hold-time>
+                    </hold-time>
+                    <local-as>
+                    </local-as>
+                </neighbor>
+                <neighbor>
+                    <ip-address>2001:7f8::2ca:0:1</ip-address>
+                    <admin-state>enable</admin-state>
+                    <description>Apple</description>
+                    <group>ebgp</group>
+                    <peer-as>714</peer-as>
+                    <hold-time>
+                        <minimum-hold-time>0</minimum-hold-time>
+                    </hold-time>
+                    <local-as>
+                    </local-as>
+                    <export>
+                        <policy>next-hop-self-ebgp-routes-only</policy>
+                    </export>
+                </neighbor>
+                <neighbor>
+                    <ip-address>2001:7f8::3466:0:1</ip-address>
+                    <admin-state>enable</admin-state>
+                    <description>Twitter</description>
+                    <group>ebgp</group>
+                    <peer-as>13414</peer-as>
+                    <hold-time>
+                        <minimum-hold-time>0</minimum-hold-time>
+                    </hold-time>
+                    <local-as>
+                    </local-as>
+                </neighbor>
+            </bgp>
+        </router>
+        <router>
+            <router-name>management</router-name>
+        </router>
+        <service>
+            <vprn>
+                <service-name>test</service-name>
                 <autonomous-system>12552</autonomous-system>
                 <bgp>
-                    <neighbor>
-                        <ip-address>80.81.192.10</ip-address>
-                        <peer-as>13414</peer-as>
-                        <hold-time>
-                            <minimum-hold-time>0</minimum-hold-time>
-                        </hold-time>
-                        <remove-private>
-                            <limited>true</limited>
-                        </remove-private>
+                    <group>
+                        <group-name>ebgp</group-name>
                         <local-as>
-                            <prepend-global-as>true</prepend-global-as>
                         </local-as>
-                    </neighbor>
+                        <import>
+                            <policy>accept_all</policy>
+                        </import>
+                        <export>
+                            <policy>accept_all</policy>
+                        </export>
+                        <dynamic-neighbor>
+                            <match>
+                            </match>
+                        </dynamic-neighbor>
+                    </group>
                     <neighbor>
-                        <ip-address>2001:7f8::3466:0:1</ip-address>
+                        <ip-address>10.1.0.2</ip-address>
+                        <admin-state>enable</admin-state>
+                        <description>Twitter</description>
+                        <group>ebgp</group>
                         <peer-as>13414</peer-as>
                         <hold-time>
                             <minimum-hold-time>0</minimum-hold-time>
                         </hold-time>
                         <local-as>
-                            <prepend-global-as>true</prepend-global-as>
                         </local-as>
                     </neighbor>
                 </bgp>
-            </router>
-            <router>
-                <router-name>management</router-name>
-            </router>
-            <service>
-                <vprn>
-                    <service-name>test</service-name>
-                    <autonomous-system>12552</autonomous-system>
-                    <bgp>
-                        <neighbor>
-                            <ip-address>10.1.0.2</ip-address>
-                            <peer-as>13414</peer-as>
-                            <hold-time>
-                                <minimum-hold-time>0</minimum-hold-time>
-                            </hold-time>
-                            <local-as>
-                                <prepend-global-as>true</prepend-global-as>
-                            </local-as>
-                        </neighbor>
-                    </bgp>
-                </vprn>
-            </service>
-        </configure>
-        <state xmlns="urn:nokia.com:sros:ns:yang:sr:state">
-            <router>
-                <router-name>Base</router-name>
-                <oper-router-id>10.0.0.2</oper-router-id>
+            </vprn>
+        </service>
+    </configure>
+    <state xmlns="urn:nokia.com:sros:ns:yang:sr:state">
+        <router>
+            <router-name>Base</router-name>
+            <bgp>
+                <neighbor>
+                    <ip-address>80.81.192.10</ip-address>
+                    <statistics>
+                        <peer-as>13414</peer-as>
+                        <peer-port>37025</peer-port>
+                        <local-port>179</local-port>
+                        <session-state>Established</session-state>
+                        <last-state>Established</last-state>
+                        <last-event>recvOpen</last-event>
+                        <operational-local-address>80.81.194.114</operational-local-address>
+                        <operational-remote-address>80.81.192.10</operational-remote-address>
+                        <peer-identifier>10.0.0.3</peer-identifier>
+                        <hold-time-interval>90</hold-time-interval>
+                        <keep-alive-interval>30</keep-alive-interval>
+                        <number-of-update-flaps>1</number-of-update-flaps>
+                        <dynamically-configured>true</dynamically-configured>
+                        <family-prefix>
+                            <ipv4>
+                                <received>3</received>
+                                <active>2</active>
+                                <suppressed>0</suppressed>
+                                <rejected>0</rejected>
+                                <sent>5</sent>
+                            </ipv4>
+                            <ipv6>
+                                <received>0</received>
+                                <active>0</active>
+                                <suppressed>0</suppressed>
+                                <rejected>0</rejected>
+                                <sent>0</sent>
+                            </ipv6>
+                        </family-prefix>
+                        <sent>
+                            <queues>0</queues>
+                            <messages>111</messages>
+                            <updates>5</updates>
+                        </sent>
+                        <received>
+                            <messages>111</messages>
+                            <updates>6</updates>
+                        </received>
+                    </statistics>
+                </neighbor>
+                <neighbor>
+                    <ip-address>80.81.193.202</ip-address>
+                    <statistics>
+                        <peer-port>179</peer-port>
+                        <local-port>51051</local-port>
+                        <session-state>Established</session-state>
+                        <last-state>Active</last-state>
+                        <last-event>recvOpen</last-event>
+                        <operational-local-address>80.81.194.114</operational-local-address>
+                        <operational-remote-address>80.81.193.202</operational-remote-address>
+                        <peer-identifier>10.0.0.4</peer-identifier>
+                        <hold-time-interval>90</hold-time-interval>
+                        <keep-alive-interval>30</keep-alive-interval>
+                        <number-of-update-flaps>0</number-of-update-flaps>
+                        <dynamically-configured>false</dynamically-configured>
+                        <family-prefix>
+                            <ipv4>
+                                <received>3</received>
+                                <active>1</active>
+                                <suppressed>0</suppressed>
+                                <rejected>0</rejected>
+                                <sent>5</sent>
+                            </ipv4>
+                            <ipv6>
+                                <received>0</received>
+                                <active>0</active>
+                                <suppressed>0</suppressed>
+                                <rejected>0</rejected>
+                                <sent>0</sent>
+                            </ipv6>
+                        </family-prefix>
+                        <sent>
+                            <queues>0</queues>
+                            <messages>170</messages>
+                            <updates>11</updates>
+                        </sent>
+                        <received>
+                            <messages>162</messages>
+                            <updates>4</updates>
+                        </received>
+                    </statistics>
+                </neighbor>
+                <neighbor>
+                    <ip-address>2001:7f8::2ca:0:1</ip-address>
+                    <statistics>
+                        <peer-port>39819</peer-port>
+                        <local-port>179</local-port>
+                        <session-state>Established</session-state>
+                        <last-state>Established</last-state>
+                        <last-event>recvOpen</last-event>
+                        <operational-local-address>2001:7f8::3108:0:1</operational-local-address>
+                        <operational-remote-address>2001:7f8::2ca:0:1</operational-remote-address>
+                        <peer-identifier>10.0.0.4</peer-identifier>
+                        <hold-time-interval>90</hold-time-interval>
+                        <keep-alive-interval>30</keep-alive-interval>
+                        <number-of-update-flaps>0</number-of-update-flaps>
+                        <dynamically-configured>false</dynamically-configured>
+                        <family-prefix>
+                            <ipv4>
+                                <received>0</received>
+                                <active>0</active>
+                                <suppressed>0</suppressed>
+                                <rejected>0</rejected>
+                                <sent>0</sent>
+                            </ipv4>
+                            <ipv6>
+                                <received>1</received>
+                                <active>0</active>
+                                <suppressed>0</suppressed>
+                                <rejected>0</rejected>
+                                <sent>2</sent>
+                            </ipv6>
+                        </family-prefix>
+                        <sent>
+                            <queues>0</queues>
+                            <messages>164</messages>
+                            <updates>5</updates>
+                        </sent>
+                        <received>
+                            <messages>161</messages>
+                            <updates>2</updates>
+                        </received>
+                    </statistics>
+                </neighbor>
+                <neighbor>
+                    <ip-address>2001:7f8::3466:0:1</ip-address>
+                    <statistics>
+                        <peer-port>44015</peer-port>
+                        <local-port>179</local-port>
+                        <session-state>Established</session-state>
+                        <last-state>Established</last-state>
+                        <last-event>recvOpen</last-event>
+                        <operational-local-address>2001:7f8::3108:0:1</operational-local-address>
+                        <operational-remote-address>2001:7f8::3466:0:1</operational-remote-address>
+                        <peer-identifier>10.0.0.3</peer-identifier>
+                        <hold-time-interval>90</hold-time-interval>
+                        <keep-alive-interval>30</keep-alive-interval>
+                        <number-of-update-flaps>0</number-of-update-flaps>
+                        <dynamically-configured>false</dynamically-configured>
+                        <family-prefix>
+                            <ipv4>
+                                <received>0</received>
+                                <active>0</active>
+                                <suppressed>0</suppressed>
+                                <rejected>0</rejected>
+                                <sent>0</sent>
+                            </ipv4>
+                            <ipv6>
+                                <received>1</received>
+                                <active>1</active>
+                                <suppressed>0</suppressed>
+                                <rejected>0</rejected>
+                                <sent>2</sent>
+                            </ipv6>
+                        </family-prefix>
+                        <sent>
+                            <queues>0</queues>
+                            <messages>162</messages>
+                            <updates>3</updates>
+                        </sent>
+                        <received>
+                            <messages>160</messages>
+                            <updates>2</updates>
+                        </received>
+                    </statistics>
+                </neighbor>
+            </bgp>
+        </router>
+        <service>
+            <vprn>
+                <service-name>test</service-name>
                 <bgp>
                     <neighbor>
-                        <ip-address>80.81.192.10</ip-address>
+                        <ip-address>10.1.0.2</ip-address>
                         <statistics>
-                            <peer-port>179</peer-port>
-                            <local-port>50750</local-port>
+                            <peer-port>40701</peer-port>
+                            <local-port>179</local-port>
                             <session-state>Established</session-state>
-                            <last-state>Active</last-state>
+                            <last-state>Established</last-state>
                             <last-event>recvOpen</last-event>
-                            <operational-local-address>80.81.194.114</operational-local-address>
-                            <operational-remote-address>80.81.192.10</operational-remote-address>
+                            <operational-local-address>10.1.0.1</operational-local-address>
+                            <operational-remote-address>10.1.0.2</operational-remote-address>
                             <peer-identifier>10.0.0.3</peer-identifier>
                             <hold-time-interval>90</hold-time-interval>
                             <keep-alive-interval>30</keep-alive-interval>
                             <number-of-update-flaps>0</number-of-update-flaps>
+                            <dynamically-configured>false</dynamically-configured>
                             <family-prefix>
                                 <ipv4>
-                                    <received>1</received>
-                                    <active>1</active>
-                                    <suppressed>0</suppressed>
-                                    <rejected>0</rejected>
-                                    <sent>3</sent>
-                                </ipv4>
-                                <ipv6>
-                                    <received>0</received>
-                                    <active>0</active>
-                                    <suppressed>0</suppressed>
-                                    <rejected>0</rejected>
-                                    <sent>0</sent>
-                                </ipv6>
-                            </family-prefix>
-                            <sent>
-                                <queues>0</queues>
-                                <messages>306</messages>
-                                <updates>3</updates>
-                            </sent>
-                            <received>
-                                <messages>304</messages>
-                                <updates>2</updates>
-                            </received>
-                        </statistics>
-                    </neighbor>
-                    <neighbor>
-                        <ip-address>2001:7f8::3466:0:1</ip-address>
-                        <statistics>
-                            <peer-port>179</peer-port>
-                            <local-port>50751</local-port>
-                            <session-state>Established</session-state>
-                            <last-state>Active</last-state>
-                            <last-event>recvOpen</last-event>
-                            <operational-local-address>2001:7f8::3108:0:1</operational-local-address>
-                            <operational-remote-address>2001:7f8::3466:0:1</operational-remote-address>
-                            <peer-identifier>10.0.0.3</peer-identifier>
-                            <hold-time-interval>90</hold-time-interval>
-                            <keep-alive-interval>30</keep-alive-interval>
-                            <number-of-update-flaps>0</number-of-update-flaps>
-                            <family-prefix>
-                                <ipv4>
-                                    <received>0</received>
-                                    <active>0</active>
-                                    <suppressed>0</suppressed>
-                                    <rejected>0</rejected>
-                                    <sent>0</sent>
-                                </ipv4>
-                                <ipv6>
                                     <received>0</received>
                                     <active>0</active>
                                     <suppressed>0</suppressed>
                                     <rejected>0</rejected>
                                     <sent>1</sent>
+                                </ipv4>
+                                <ipv6>
+                                    <received>0</received>
+                                    <active>0</active>
+                                    <suppressed>0</suppressed>
+                                    <rejected>0</rejected>
+                                    <sent>0</sent>
                                 </ipv6>
                             </family-prefix>
                             <sent>
                                 <queues>0</queues>
-                                <messages>305</messages>
+                                <messages>161</messages>
                                 <updates>2</updates>
                             </sent>
                             <received>
-                                <messages>299</messages>
+                                <messages>160</messages>
                                 <updates>1</updates>
                             </received>
                         </statistics>
                     </neighbor>
                 </bgp>
-            </router>
-            <router>
-                <router-name>management</router-name>
-                <oper-router-id>10.0.0.2</oper-router-id>
-            </router>
-            <service>
-                <vprn>
-                    <service-name>test</service-name>
-                    <oper-router-id>10.0.0.2</oper-router-id>
-                    <bgp>
-                        <neighbor>
-                            <ip-address>10.1.0.2</ip-address>
-                            <statistics>
-                                <peer-port>179</peer-port>
-                                <local-port>50776</local-port>
-                                <session-state>Established</session-state>
-                                <last-state>Active</last-state>
-                                <last-event>recvOpen</last-event>
-                                <operational-local-address>10.1.0.1</operational-local-address>
-                                <operational-remote-address>10.1.0.2</operational-remote-address>
-                                <peer-identifier>10.0.0.3</peer-identifier>
-                                <hold-time-interval>90</hold-time-interval>
-                                <keep-alive-interval>30</keep-alive-interval>
-                                <number-of-update-flaps>0</number-of-update-flaps>
-                                <family-prefix>
-                                    <ipv4>
-                                        <received>0</received>
-                                        <active>0</active>
-                                        <suppressed>0</suppressed>
-                                        <rejected>0</rejected>
-                                        <sent>1</sent>
-                                    </ipv4>
-                                    <ipv6>
-                                        <received>0</received>
-                                        <active>0</active>
-                                        <suppressed>0</suppressed>
-                                        <rejected>0</rejected>
-                                        <sent>0</sent>
-                                    </ipv6>
-                                </family-prefix>
-                                <sent>
-                                    <queues>0</queues>
-                                    <messages>304</messages>
-                                    <updates>2</updates>
-                                </sent>
-                                <received>
-                                    <messages>302</messages>
-                                    <updates>1</updates>
-                                </received>
-                            </statistics>
-                        </neighbor>
-                    </bgp>
-                </vprn>
-            </service>
-        </state>
+            </vprn>
+        </service>
+    </state>
 </data>
