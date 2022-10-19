@@ -158,6 +158,7 @@ class NokiaSROSDriver(NetworkDriver):
             log.error("Error in opening a ssh connection: %s" % traceback.format_exc())
 
     def _perform_cli_commands(self, commands, is_get):
+        print( f"_perform_cli_commands {commands} is_get={is_get}" )
         try:
             is_alive = False
             if self.conn_ssh is not None:
