@@ -175,7 +175,8 @@ class NokiaSROSDriver(NetworkDriver):
                         resp = self.ssh_channel.recv(9999)
                         buff += resp.decode("ascii")
                         if re.search(self.terminal_stdout_re[0], buff):
-                            break
+                          break
+                        print( f"JvB: recv loop buff={buff}")
             else:
                 # chunk commands into lists of length 500
                 # send all the 500 commands together
