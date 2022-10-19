@@ -470,7 +470,6 @@ class NokiaSROSDriver(NetworkDriver):
         else:
             configuration = configuration.split("\n")
             configuration.insert(0, "edit-config exclusive")
-            configuration.append("quit-config")
             buff = self._perform_cli_commands(configuration, False)
             # error checking
             if buff is not None:
