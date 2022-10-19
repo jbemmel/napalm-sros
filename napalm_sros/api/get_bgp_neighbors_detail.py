@@ -23,38 +23,51 @@ import logging
 from ncclient.xml_ import to_xml, to_ele
 from napalm.base.helpers import convert
 from .util import _find_txt, NSMAP
+from .bgp_neighbor import BGPNeighbor
 
 #
 # Netconf filters to retrieve only required attributes
 #
-
 NEIGHBOR_CONF = """
-<neighbor>
-    <ip-address>{neighbor_address}</ip-address>
-    <peer-as/>
-    <local-address/>
-    <multihop/>
-    <multipath-eligible/>
-    <asn-4-byte/>
-    <keepalive/>
+<autonomous-system/>
+<bgp>
+    <group>
     <local-as>
-        <as-number/>
-        <prepend-global-as/>
+     <as-number/>
     </local-as>
-    <remove-private>
-        <limited/>
-    </remove-private>
-    <import>
-        <policy/>
-    </import>
-    <export>
-        <policy/>
-    </export>
-    <hold-time>
-        <seconds/>
-        <minimum-hold-time/>
-    </hold-time>
-</neighbor>
+    <dynamic-neighbor/>
+    <import/>
+    <export/>
+    </group>
+    <neighbor>
+        <ip-address>{neighbor_address}</ip-address>
+        <group/>
+        <admin-state/>
+        <description/>
+        <peer-as/>
+        <local-as>
+         <as-number/>
+        </local-as>
+        <local-address/>
+        <multihop/>
+        <multipath-eligible/>
+        <asn-4-byte/>
+        <keepalive/>
+        <remove-private>
+         <limited/>
+        </remove-private>
+        <import>
+         <policy/>
+        </import>
+        <export>
+         <policy/>
+        </export>
+        <hold-time>
+         <seconds/>
+         <minimum-hold-time/>
+        </hold-time>
+    </neighbor>
+</bgp>
 """
 
 NEIGHBOR_STATS = """
@@ -66,6 +79,7 @@ NEIGHBOR_STATS = """
     <local-port/>
     <peer-identifier/>
     <peer-port/>
+    <peer-as/>
     <operational-local-address/>
     <operational-remote-address/>
     <last-state/>
@@ -82,6 +96,7 @@ NEIGHBOR_STATS = """
         <updates/>
         <queues/>
     </sent>
+    <dynamically-configured/>
     <family-prefix>
         <ipv4>
             <active/>
@@ -107,29 +122,23 @@ GET_BGP_NEIGHBORS_DETAILS = """
     <filter>
         <configure xmlns="urn:nokia.com:sros:ns:yang:sr:conf">
             <router>
-                <router-name/>
-                <autonomous-system/>
-                <bgp>
-                """+NEIGHBOR_CONF+"""
-                </bgp>
+             <router-name/>
+          """+NEIGHBOR_CONF+"""
             </router>
             <service>
                 <vprn>
-                    <service-name/>
-                    <autonomous-system/>
-                    <bgp>
-                    """+NEIGHBOR_CONF+"""
-                    </bgp>
+                 <service-name/>
+              """+NEIGHBOR_CONF+"""
                 </vprn>
             </service>
         </configure>
         <state xmlns="urn:nokia.com:sros:ns:yang:sr:state">
             <router>
-                """+NEIGHBOR_STATS+"""
+            """+NEIGHBOR_STATS+"""
             </router>
             <service>
                 <vprn>
-                    """+NEIGHBOR_STATS+"""
+                """+NEIGHBOR_STATS+"""
                 </vprn>
             </service>
         </state>
@@ -149,90 +158,55 @@ def get_bgp_neighbors_detail(conn,neighbor_address=""):
   )
   if log.isEnabledFor(logging.DEBUG):
     log.debug(to_xml(data, pretty_print=True))
+
   result = {}
-  for n in data.xpath("//configure_ns:neighbor",namespaces=NSMAP):
-    name = _find_txt(n, "../../configure_ns:service-name") or "global"
-    local_as = convert(int, _find_txt( n, "../../configure_ns:autonomous-system" ))
+  for nb in BGPNeighbor.list(data):
 
-    ip_address = _find_txt( n, "configure_ns:ip-address" )
-    stats = data.xpath( f"//state_ns:ip-address[ text()='{ip_address}']/..", namespaces=NSMAP)
-
-    def conf_int(attr: str,default=0):
-      return convert( int, _find_txt(n,f"configure_ns:{attr}")) or default
-
-    def state_int(attr: str):
-      return convert( int, _find_txt(stats[0],f"state_ns:statistics/state_ns:{attr}"))
-
-    def conf_str(attr: str):
-      return _find_txt(n,f"configure_ns:{attr}")
-
-    def conf_bool(attr:str):
-      return conf_str(attr).lower() == "true"
-
-    def conf_list(attr:str):
-      policies = [ele.text for ele in n.xpath(attr,namespaces=NSMAP)]
-      return ",".join(policies)
-
-    def state_str(attr: str):
-      return _find_txt(stats[0],f"state_ns:statistics/state_ns:{attr}")
-
-    session_state = state_str('session-state')
-
-    count = {}
-    for attr in ['active','suppressed','rejected','sent','received']:
-      count[attr] = {}
-      for af in ('ipv4','ipv6'):
-        count[attr][af] = convert(
-            int,
-            _find_txt(
-                stats[0],
-                f"state_ns:statistics/state_ns:family-prefix/state_ns:{af}/state_ns:{attr}"
-            )
-        )
-      count[attr]['total'] = count[attr]['ipv4'] + count[attr]['ipv6']
+    session_state = nb.state_str('session-state')
+    count = nb.counters( attrs=['active','suppressed','rejected','sent','received'], total=True )
 
     peer = {
       'up': session_state.lower()=="established",
-      'local_as': local_as,
-      'remote_as': conf_int('peer-as'),
-      'router_id': state_str('peer-identifier'),
-      'local_address': state_str('operational-local-address'),
-      'routing_table': name,
-      'local_address_configured': conf_str('local-address') != "",
-      'local_port': state_int('local-port'),
-      'remote_address': ip_address,
-      'remote_port': state_int('peer-port'),
-      'multihop': conf_int('multihop') > 0,
-      'multipath': conf_str('multipath-eligible') != "false",
-      'remove_private_as': conf_bool('remove-private/configure_ns:limited'),
-      'import_policy': conf_list('import/configure_ns:policy'),
-      'export_policy': conf_list('export/configure_ns:policy'),
-      'input_messages': state_int('received/state_ns:messages'),
-      'output_messages': state_int('sent/state_ns:messages'),
-      'input_updates': state_int('received/state_ns:updates'),
-      'output_updates': state_int('sent/state_ns:updates'),
-      'messages_queued_out': state_int('sent/state_ns:queues'),
+      'local_as': nb.local_as(),
+      'remote_as': nb.state_int('peer-as') or nb.conf_int('peer-as'),
+      'router_id': nb.state_str('peer-identifier'),
+      'local_address': nb.state_str('operational-local-address'),
+      'routing_table': nb.vrf,
+      'local_address_configured': nb.conf_str('local-address') != "",
+      'local_port': nb.state_int('local-port'),
+      'remote_address': nb.ip_address,
+      'remote_port': nb.state_int('peer-port'),
+      'multihop': nb.conf_int('multihop') > 0,
+      'multipath': nb.conf_str('multipath-eligible') != "false",
+      'remove_private_as': nb.conf_bool('remove-private/configure_ns:limited'),
+      'import_policy': nb.conf_policies('import/configure_ns:policy'),
+      'export_policy': nb.conf_policies('export/configure_ns:policy'),
+      'input_messages': nb.state_int('received/state_ns:messages'),
+      'output_messages': nb.state_int('sent/state_ns:messages'),
+      'input_updates': nb.state_int('received/state_ns:updates'),
+      'output_updates': nb.state_int('sent/state_ns:updates'),
+      'messages_queued_out': nb.state_int('sent/state_ns:queues'),
       'connection_state': session_state,
-      'previous_connection_state': state_str('last-state'),
-      'last_event': state_str('last-event'),
-      'suppress_4byte_as': conf_str('asn-4-byte') == 'false',
-      'local_as_prepend': conf_bool('local-as/configure_ns:prepend-global-as'),
-      'holdtime': state_int('hold-time-interval'),
-      'configured_holdtime': conf_int('hold-time/configure_ns:seconds'),
-      'keepalive': state_int('keep-alive-interval'),
-      'configured_keepalive': conf_int('keepalive'),
+      'previous_connection_state': nb.state_str('last-state'),
+      'last_event': nb.state_str('last-event'),
+      'suppress_4byte_as': nb.conf_str('asn-4-byte') == 'false',
+      'local_as_prepend': nb.conf_bool('local-as/configure_ns:prepend-global-as'),
+      'holdtime': nb.state_int('hold-time-interval'),
+      'configured_holdtime': nb.conf_int('hold-time/configure_ns:seconds'),
+      'keepalive': nb.state_int('keep-alive-interval'),
+      'configured_keepalive': nb.conf_int('keepalive'),
       'active_prefix_count': count['active']['total'],
       'received_prefix_count': count['received']['total'],
       'accepted_prefix_count': count['received']['total'] - count['rejected']['total'],
       'suppressed_prefix_count': count['suppressed']['total'],
       'advertised_prefix_count': count['sent']['total'],
-      'flap_count': state_int('number-of-update-flaps')
+      'flap_count': nb.state_int('number-of-update-flaps')
     }
 
-    if name not in result:
-      result[name] = {}
-    if peer['remote_as'] not in result[name]:
-      result[name][ peer['remote_as'] ] = []
-    result[name][ peer['remote_as'] ].append(peer)
+    if nb.vrf not in result:
+      result[nb.vrf] = {}
+    if peer['remote_as'] not in result[nb.vrf]:
+      result[nb.vrf][ peer['remote_as'] ] = []
+    result[nb.vrf][ peer['remote_as'] ].append(peer)
 
   return result

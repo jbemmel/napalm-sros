@@ -24,6 +24,7 @@ from ncclient.xml_ import to_xml, to_ele
 from napalm.base.helpers import convert
 
 from .util import _find_txt, NSMAP
+from .bgp_neighbor import BGPNeighbor
 
 #
 # Netconf filters to retrieve only required attributes
@@ -31,13 +32,20 @@ from .util import _find_txt, NSMAP
 NEIGHBOR_CONF = """
 <autonomous-system/>
 <bgp>
+    <group>
+    <local-as>
+     <as-number/>
+    </local-as>
+    <dynamic-neighbor/>
+    </group>
     <neighbor>
         <ip-address/>
+        <group/>
         <admin-state/>
         <description/>
         <peer-as/>
         <local-as>
-            <as-number/>
+         <as-number/>
         </local-as>
     </neighbor>
 </bgp>
@@ -50,8 +58,10 @@ NEIGHBOR_STATS = """
         <ip-address/>
         <statistics>
             <peer-identifier/>
+            <peer-as/>
             <session-state/>
             <last-established-time/>
+            <dynamically-configured/>
             <family-prefix>
                 <ipv4>
                     <received/>
@@ -73,12 +83,10 @@ GET_BGP_NEIGHBORS = """
     <filter>
         <configure xmlns="urn:nokia.com:sros:ns:yang:sr:conf">
             <router>
-            <router-name/>
             """+NEIGHBOR_CONF+"""
             </router>
             <service>
                 <vprn>
-                <service-name/>
             """+NEIGHBOR_CONF+"""
                 </vprn>
             </service>
@@ -92,6 +100,7 @@ GET_BGP_NEIGHBORS = """
             </router>
             <service>
                 <vprn>
+                <service-name/>
                 """+NEIGHBOR_STATS+"""
                 </vprn>
             </service>
@@ -125,21 +134,8 @@ def get_bgp_neighbors(conn):
     router_id = _find_txt(vprn, "state_ns:oper-router-id")
     result[ name ] = { 'router_id': router_id, 'peers': {} }
 
-  for n in data.xpath("//configure_ns:neighbor",namespaces=NSMAP):
-    name = _find_txt(n, "../../configure_ns:service-name") or "global"
-    local_as = convert(int, _find_txt( n, "../../configure_ns:autonomous-system" ))
-
-    ip_address = _find_txt( n, "configure_ns:ip-address" )
-    stats = data.xpath( f"//state_ns:ip-address[ text()='{ip_address}']/..", namespaces=NSMAP)
-
-    def conf_int(attr: str,default=0):
-      return convert( int, _find_txt(n,f"configure_ns:{attr}")) or default
-
-    def conf_str(attr: str):
-      return _find_txt(n,f"configure_ns:{attr}")
-
-    def state_str(attr: str):
-      return _find_txt(stats[0],f"state_ns:statistics/state_ns:{attr}")
+  # Iterate over neighbors found in state - this may include dynamic neighbors
+  for nb in BGPNeighbor.list(data):
 
     def to_timestamp(time:str):
       if time:
@@ -147,31 +143,18 @@ def get_bgp_neighbors(conn):
         return datetime.datetime.strptime(time[:-1], "%Y-%m-%dT%H:%M:%S.%f").timestamp()
       return 0
 
-    session_state = state_str('session-state')
-    router_id = _find_txt( data, f"//state_ns:ip-address[text()='{ip_address}']/../../../state_ns:oper-router-id" )
+    count = nb.counters(attrs=['received','active','sent'])
 
-    count = {}
-    for attr in ['received','active','sent']:
-      count[attr] = {}
-      for af in ('ipv4','ipv6'):
-        count[attr][af] = convert(
-            int,
-            _find_txt(
-                stats[0],
-                f"state_ns:statistics/state_ns:family-prefix/state_ns:{af}/state_ns:{attr}"
-            )
-        )
-
-    last_established_time = to_timestamp(state_str('last-established-time'))
+    last_established_time = to_timestamp(nb.state_str('last-established-time'))
     uptime = to_timestamp(current_time_str) - last_established_time
-
+    is_dynamic = nb.state_str('dynamically-configured')=="true"
     peer = {
-      'local_as': local_as,
-      'remote_as': conf_int('peer-as'),
-      'remote_id': state_str('peer-identifier'),
-      'is_up': session_state.lower()=="established",
-      'is_enabled': conf_str('admin-state') == "enable",
-      'description': conf_str('description'),
+      'local_as': nb.local_as(),
+      'remote_as': nb.state_int('peer-as') if is_dynamic else nb.conf_int('peer-as'),
+      'remote_id': nb.state_str('peer-identifier'),
+      'is_up': nb.state_str('session-state').lower()=="established",
+      'is_enabled': nb.conf_str('admin-state') == "enable" or is_dynamic,
+      'description': "Dynamic neighbor" if is_dynamic else nb.conf_str('description'),
       'uptime': convert(int,uptime), # Current or time since down if is_up=False
       'address_family': {
         'ipv4': {
@@ -186,6 +169,6 @@ def get_bgp_neighbors(conn):
         }
       }
     }
-    result[name]['peers'][ip_address] = peer
+    result[nb.vrf]['peers'][nb.ip_address] = peer
 
   return result
