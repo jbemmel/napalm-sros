@@ -170,6 +170,7 @@ class NokiaSROSDriver(NetworkDriver):
                 for command in commands:
                     if "\n" not in command:
                         command = command + "\n"
+                    print( f"Sending command: {command}" )
                     self.ssh_channel.send(command)
                     while True:
                         time.sleep(0.150)
