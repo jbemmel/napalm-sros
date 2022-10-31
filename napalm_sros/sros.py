@@ -1619,10 +1619,10 @@ class NokiaSROSDriver(NetworkDriver):
                 ntp_stats_list.append(temp_dict)
                 return ntp_stats_list
 
-            cmd = ["/environment more false", "show system ntp servers"]
+            cmd = ["/environment more false", "/show system ntp servers"]
             buff_servers = self._perform_cli_commands(cmd, True)
             ntp_stats_list = _get_ntp_stats_data(buff_servers)
-            cmd = ["/environment more false", "show system ntp peers"]
+            cmd = ["/environment more false", "/show system ntp peers"]
             buff_peers = self._perform_cli_commands(cmd, True)
             ntp_stats_list = _get_ntp_stats_data(buff_peers)
 
@@ -1803,7 +1803,7 @@ class NokiaSROSDriver(NetworkDriver):
 
             def _get_protocol_attributes(router_name, local_protocol):
                 # destination needs to be with prefix
-                command = f"show router {router_name} route-table {destination} protocol {local_protocol} extensive all"
+                command = f"/show router {router_name} route-table {destination} protocol {local_protocol} extensive all"
                 output = self._perform_cli_commands(
                     ["/environment more false", command], True
                 )
@@ -1947,7 +1947,7 @@ class NokiaSROSDriver(NetworkDriver):
                     destination_address_with_prefix = k
                 if destination_address_with_prefix:
                     # protocol attributes local_as, as_path, local_preference
-                    cmd = f"show router {router_name} bgp routes {destination_address_with_prefix} detail"
+                    cmd = f"/show router {router_name} bgp routes {destination_address_with_prefix} detail"
                     buff_1 = self._perform_cli_commands(
                         ["/environment more false", cmd], True
                     )
@@ -2057,7 +2057,7 @@ class NokiaSROSDriver(NetworkDriver):
                 if destination_address_with_prefix:
                     for d in route_to_dict[destination_address_with_prefix]:
                         d.update({"protocol_attributes": {}})
-                    command = f"show router {router_name} isis routes ip-prefix-prefix-length {destination_address_with_prefix}"
+                    command = f"/show router {router_name} isis routes ip-prefix-prefix-length {destination_address_with_prefix}"
                     buff_1 = self._perform_cli_commands(
                         ["/environment more false", command], True
                     )
@@ -2088,7 +2088,7 @@ class NokiaSROSDriver(NetworkDriver):
                 if destination_address_with_prefix:
                     for d in route_to_dict[destination_address_with_prefix]:
                         d.update({"protocol_attributes": {}})
-                    command = f"show router {router_name} ospf routes {destination_address_with_prefix}"
+                    command = f"/show router {router_name} ospf routes {destination_address_with_prefix}"
                     buff_1 = self._perform_cli_commands(
                         ["/environment more false", command], True
                     )
@@ -2144,9 +2144,9 @@ class NokiaSROSDriver(NetworkDriver):
                         destination_address_with_prefix = destination + "/32"
                     else:
                         destination_address_with_prefix = destination
-                    cmd = f"show router {name} route-table {destination_address_with_prefix} longer\n"
+                    cmd = f"/show router {name} route-table {destination_address_with_prefix} longer\n"
                 else:
-                    cmd = f"show router {name} route-table {destination} \n"
+                    cmd = f"/show router {name} route-table {destination} \n"
 
                 buff = self._perform_cli_commands(["/environment more false", cmd], True)
                 for item in buff.split("\n"):
@@ -2234,7 +2234,7 @@ class NokiaSROSDriver(NetworkDriver):
                     probes_results.update({probe_name: {}})
                 probes_results[probe_name].update({test_name: {}})
                 path = "configure_ns:type/configure_ns:icmp-ping"
-                cmd = f"show saa {test_name}"
+                cmd = f"/show saa {test_name}"
                 buff = self._perform_cli_commands(["/environment more false", cmd], True)
                 test_number_1 = ""
                 test_number_2 = 0
@@ -2440,7 +2440,7 @@ class NokiaSROSDriver(NetworkDriver):
         try:
             mac_address_list = []
 
-            cmd = "show service fdb-mac"
+            cmd = "/show service fdb-mac"
             buff = self._perform_cli_commands(["/environment more false", cmd], True)
             template = "textfsm_templates//nokia_sros_show_service_fdb_mac.tpl"
             # template = "textfsm_templates\\nokia_sros_show_service_fdb_mac.tpl"
@@ -3231,7 +3231,7 @@ class NokiaSROSDriver(NetworkDriver):
             buff = self._perform_cli_commands(
                 [
                     "/environment more false",
-                    "show chassis power-management utilization detail",
+                    "/show chassis power-management utilization detail",
                     # JvB: on VSR this is 'power-supply'
                 ],
                 True,
@@ -3375,7 +3375,7 @@ class NokiaSROSDriver(NetworkDriver):
             ipv6_neighbor_list = []
 
             for name in name_list:
-                cmd = ["/environment more false", f"show router {name} neighbor"]
+                cmd = ["/environment more false", f"/show router {name} neighbor"]
                 buff = self._perform_cli_commands(cmd, True)
                 ipv6_address_regex = re.compile(
                     "(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))"
