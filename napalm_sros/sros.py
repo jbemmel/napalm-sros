@@ -158,7 +158,7 @@ class NokiaSROSDriver(NetworkDriver):
             log.error("Error in opening a ssh connection: %s" % traceback.format_exc())
 
     def _perform_cli_commands(self, commands, is_get):
-        print( f"_perform_cli_commands {commands} is_get={is_get}" )
+        log.debug( f"_perform_cli_commands {commands} is_get={is_get}" )
         try:
             is_alive = False
             if self.conn_ssh is not None:
@@ -170,7 +170,7 @@ class NokiaSROSDriver(NetworkDriver):
                 for command in commands:
                     if "\n" not in command:
                         command = command + "\n"
-                    print( f"Sending command: {command}" )
+                    log.debug( f"Sending command: {command}" )
                     self.ssh_channel.send(command)
                     while True:
                         time.sleep(0.150)
@@ -178,7 +178,7 @@ class NokiaSROSDriver(NetworkDriver):
                         buff += resp.decode("ascii")
                         if re.search(self.terminal_stdout_re[0], buff):
                           break
-                        print( f"JvB: recv loop buff={buff}")
+                        log.debug( f"JvB: recv loop buff={buff}")
             else:
                 # chunk commands into lists of length 500
                 # send all the 500 commands together
@@ -222,6 +222,7 @@ class NokiaSROSDriver(NetworkDriver):
         except Exception as e:
             print("Error in method perform cli commands : {}".format(e))
             log.error("Error in method perform cli commands : %s" % traceback.format_exc())
+            return None
 
     def _lock_config(self):
         if not self.locked:
