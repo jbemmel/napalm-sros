@@ -480,6 +480,8 @@ class NokiaSROSDriver(NetworkDriver):
                     if any(match.search(item) for match in self.terminal_stderr_re):
                         log.error(f"Merge issue : {item}")
                         raise MergeConfigException("Merge issue: %s", item)
+            else:
+                raise MergeConfigException("Timeout during load_merge_candidate")
 
     def load_replace_candidate(self, filename=None, config=None):
         """
@@ -500,42 +502,40 @@ class NokiaSROSDriver(NetworkDriver):
             with open(filename) as f:
                 configuration = f.read()
 
-        try:
-            self.fmt = self._determinne_config_format(configuration)
-            if self.fmt == "xml":
-                if not self.lock_disable and not self.session_config_lock:
-                    self._lock_config()
-                configuration = etree.XML(configuration)
-                configuration_tree = etree.ElementTree(configuration)
-                root = configuration_tree.getroot()
-                if root.tag != "{urn:ietf:params:xml:ns:netconf:base:1.0}config":
-                    newroot = etree.Element(
-                        "{urn:ietf:params:xml:ns:netconf:base:1.0}config"
-                    )
-                    newroot.insert(0, root)
-                    self.conn.edit_config(
-                        config=newroot, target="candidate", default_operation="replace",
-                    )
-                else:
-                    self.conn.edit_config(
-                        config=configuration,
-                        target="candidate",
-                        default_operation="replace",
-                    )
-                self.conn.validate(source="candidate")
+        self.fmt = self._determinne_config_format(configuration)
+        if self.fmt == "xml":
+            if not self.lock_disable and not self.session_config_lock:
+                self._lock_config()
+            configuration = etree.XML(configuration)
+            configuration_tree = etree.ElementTree(configuration)
+            root = configuration_tree.getroot()
+            if root.tag != "{urn:ietf:params:xml:ns:netconf:base:1.0}config":
+                newroot = etree.Element(
+                    "{urn:ietf:params:xml:ns:netconf:base:1.0}config"
+                )
+                newroot.insert(0, root)
+                self.conn.edit_config(
+                    config=newroot, target="candidate", default_operation="replace",
+                )
             else:
-                configuration = configuration.split("\n")
-                configuration.insert(0, "edit-config exclusive")
-                configuration.insert(1, "delete configure")
-                buff = self._perform_cli_commands(configuration, False)
-                # error checking
-                if buff is not None:
-                    for item in buff.split("\n"):
-                        if any(match.search(item) for match in self.terminal_stderr_re):
-                            raise ReplaceConfigException("Replace issue: %s", item)
-        except ReplaceConfigException as rex:
-            print("Replace issue: {}".format(rex))
-            log.error("Replace issue: %s" % traceback.format_exc())
+                self.conn.edit_config(
+                    config=configuration,
+                    target="candidate",
+                    default_operation="replace",
+                )
+            self.conn.validate(source="candidate")
+        else:
+            configuration = configuration.split("\n")
+            configuration.insert(0, "edit-config exclusive")
+            configuration.insert(1, "delete configure")
+            buff = self._perform_cli_commands(configuration, False)
+            # error checking
+            if buff is not None:
+                for item in buff.split("\n"):
+                    if any(match.search(item) for match in self.terminal_stderr_re):
+                        raise ReplaceConfigException("Replace issue: %s", item)
+            else:
+                raise ReplaceConfigException("Timeout during load_replace_candidate")
 
     def get_facts(self):
         """
