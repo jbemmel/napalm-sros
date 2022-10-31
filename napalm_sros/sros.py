@@ -367,10 +367,10 @@ class NokiaSROSDriver(NetworkDriver):
         buff = ""
         if self.fmt == "text":
             buff = self._perform_cli_commands(
-                ["environment more false", "compare"], True
+                ["/environment more false", "compare"], True
             )
             cmd_line_pattern = re.compile("\*?(.*?)(>.*)*#.*?")
-            # buff = self._perform_cli_commands(["environment more false", "compare"])
+            # buff = self._perform_cli_commands(["/environment more false", "compare"])
         else:
             #  if format is xml we convert them into dict and perform a diff on configs to return the difference
             # running_dict = xmltodict.parse(running_config, process_namespaces=True)
@@ -407,7 +407,7 @@ class NokiaSROSDriver(NetworkDriver):
                     continue
                 elif "(ex)[]" in item:
                     continue
-                elif "environment more false" in item:
+                elif "/environment more false" in item:
                     continue
                 elif cmd_line_pattern.search(item):
                     continue
@@ -1619,10 +1619,10 @@ class NokiaSROSDriver(NetworkDriver):
                 ntp_stats_list.append(temp_dict)
                 return ntp_stats_list
 
-            cmd = ["environment more false", "show system ntp servers"]
+            cmd = ["/environment more false", "show system ntp servers"]
             buff_servers = self._perform_cli_commands(cmd, True)
             ntp_stats_list = _get_ntp_stats_data(buff_servers)
-            cmd = ["environment more false", "show system ntp peers"]
+            cmd = ["/environment more false", "show system ntp peers"]
             buff_peers = self._perform_cli_commands(cmd, True)
             ntp_stats_list = _get_ntp_stats_data(buff_peers)
 
@@ -1805,7 +1805,7 @@ class NokiaSROSDriver(NetworkDriver):
                 # destination needs to be with prefix
                 command = f"show router {router_name} route-table {destination} protocol {local_protocol} extensive all"
                 output = self._perform_cli_commands(
-                    ["environment more false", command], True
+                    ["/environment more false", command], True
                 )
                 destination_address_with_prefix = ""
                 next_hop_once = False
@@ -1949,7 +1949,7 @@ class NokiaSROSDriver(NetworkDriver):
                     # protocol attributes local_as, as_path, local_preference
                     cmd = f"show router {router_name} bgp routes {destination_address_with_prefix} detail"
                     buff_1 = self._perform_cli_commands(
-                        ["environment more false", cmd], True
+                        ["/environment more false", cmd], True
                     )
 
                     for d in route_to_dict[destination_address_with_prefix]:
@@ -2059,7 +2059,7 @@ class NokiaSROSDriver(NetworkDriver):
                         d.update({"protocol_attributes": {}})
                     command = f"show router {router_name} isis routes ip-prefix-prefix-length {destination_address_with_prefix}"
                     buff_1 = self._perform_cli_commands(
-                        ["environment more false", command], True
+                        ["/environment more false", command], True
                     )
                     prev_row = ""
                     for item_1 in buff_1.split("\n"):
@@ -2090,7 +2090,7 @@ class NokiaSROSDriver(NetworkDriver):
                         d.update({"protocol_attributes": {}})
                     command = f"show router {router_name} ospf routes {destination_address_with_prefix}"
                     buff_1 = self._perform_cli_commands(
-                        ["environment more false", command], True
+                        ["/environment more false", command], True
                     )
                     first_row = False
                     for item_1 in buff_1.split("\n"):
@@ -2148,7 +2148,7 @@ class NokiaSROSDriver(NetworkDriver):
                 else:
                     cmd = f"show router {name} route-table {destination} \n"
 
-                buff = self._perform_cli_commands(["environment more false", cmd], True)
+                buff = self._perform_cli_commands(["/environment more false", cmd], True)
                 for item in buff.split("\n"):
                     if ip_pattern.search(item):
                         if "# show" in item:
@@ -2235,7 +2235,7 @@ class NokiaSROSDriver(NetworkDriver):
                 probes_results[probe_name].update({test_name: {}})
                 path = "configure_ns:type/configure_ns:icmp-ping"
                 cmd = f"show saa {test_name}"
-                buff = self._perform_cli_commands(["environment more false", cmd], True)
+                buff = self._perform_cli_commands(["/environment more false", cmd], True)
                 test_number_1 = ""
                 test_number_2 = 0
                 found_first_test = False
@@ -2441,7 +2441,7 @@ class NokiaSROSDriver(NetworkDriver):
             mac_address_list = []
 
             cmd = "show service fdb-mac"
-            buff = self._perform_cli_commands(["environment more false", cmd], True)
+            buff = self._perform_cli_commands(["/environment more false", cmd], True)
             template = "textfsm_templates//nokia_sros_show_service_fdb_mac.tpl"
             # template = "textfsm_templates\\nokia_sros_show_service_fdb_mac.tpl"
             output_list = parse_with_textfsm(template, buff)
@@ -3230,7 +3230,7 @@ class NokiaSROSDriver(NetworkDriver):
             # get the output of each power-module using MD-CLI
             buff = self._perform_cli_commands(
                 [
-                    "environment more false",
+                    "/environment more false",
                     "show chassis power-management utilization detail",
                     # JvB: on VSR this is 'power-supply'
                 ],
@@ -3375,7 +3375,7 @@ class NokiaSROSDriver(NetworkDriver):
             ipv6_neighbor_list = []
 
             for name in name_list:
-                cmd = ["environment more false", f"show router {name} neighbor"]
+                cmd = ["/environment more false", f"show router {name} neighbor"]
                 buff = self._perform_cli_commands(cmd, True)
                 ipv6_address_regex = re.compile(
                     "(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))"
@@ -3455,7 +3455,7 @@ class NokiaSROSDriver(NetworkDriver):
                 d6=str(count),
                 d7=vrf,
             )
-            buff = self._perform_cli_commands(["environment more false", command], True)
+            buff = self._perform_cli_commands(["/environment more false", command], True)
             for item in buff.split("\n"):
                 if "No route to destination" in item:
                     value = "unknown host " + destination
@@ -3532,7 +3532,7 @@ class NokiaSROSDriver(NetworkDriver):
                 d1=destination, d2=str(timeout), d3=str(ttl), d4=source, d5=vrf,
             )
             command = [
-                "environment more false",
+                "/environment more false",
                 "environment progress-indicator admin-state disable",
                 cmd,
             ]
