@@ -61,6 +61,11 @@ log = init_logging()
 class NokiaSROSDriver(NetworkDriver):
     """Napalm driver for Skeleton."""
 
+    def __ValueError__(self,e,method):
+        print(f"Error in method {method} : {e}")
+        log.error(f"Error in method {method} : %s" % traceback.format_exc())
+        return ValueError(f"Exception in {method}: {e}")
+
     def __init__(self, hostname, username, password, timeout=60, optional_args=None):
         """Constructor."""
         self.manager = None
@@ -118,17 +123,12 @@ class NokiaSROSDriver(NetworkDriver):
                     hostkey_verify=False,
                     timeout=self.timeout,
                 )
-        except ConnectionException as ce:
-            print("Error in opening netconf connection : {}".format(ce))
-            log.error(
-                "Error in opening netconf connection : %s" % traceback.format_exc()
-            )
-
         except Exception as e:
             print("Error in opening netconf connection : {}".format(e))
             log.error(
                 "Error in opening netconf connection : %s" % traceback.format_exc()
             )
+            raise ConnectionException(e.msg) from e
 
     def close(self):
         """Implement the NAPALM method close (mandatory)"""
@@ -443,44 +443,40 @@ class NokiaSROSDriver(NetworkDriver):
             with open(filename) as f:
                 configuration = f.read()
 
-        try:
-            self.fmt = self._determinne_config_format(configuration)
-            if self.fmt == "xml":
-                if not self.lock_disable and not self.session_config_lock:
-                    self._lock_config()
-                configuration = etree.XML(configuration)
-                configuration_tree = etree.ElementTree(configuration)
-                root = configuration_tree.getroot()
-                if root.tag != "{urn:ietf:params:xml:ns:netconf:base:1.0}config":
-                    newroot = etree.Element(
-                        "{urn:ietf:params:xml:ns:netconf:base:1.0}config"
-                    )
-                    newroot.insert(0, root)
-                    self.conn.edit_config(
-                        config=newroot, target="candidate", default_operation="merge"
-                    )
-
-                else:
-                    self.conn.edit_config(
-                        config=configuration,
-                        target="candidate",
-                        default_operation="merge",
-                    )
-                self.conn.validate(source="candidate")
-
+        self.fmt = self._determinne_config_format(configuration)
+        if self.fmt == "xml":
+            if not self.lock_disable and not self.session_config_lock:
+                self._lock_config()
+            configuration = etree.XML(configuration)
+            configuration_tree = etree.ElementTree(configuration)
+            root = configuration_tree.getroot()
+            if root.tag != "{urn:ietf:params:xml:ns:netconf:base:1.0}config":
+                newroot = etree.Element(
+                    "{urn:ietf:params:xml:ns:netconf:base:1.0}config"
+                )
+                newroot.insert(0, root)
+                self.conn.edit_config(
+                    config=newroot, target="candidate", default_operation="merge"
+                )
             else:
-                configuration = configuration.split("\n")
-                configuration.insert(0, "edit-config exclusive")
-                buff = self._perform_cli_commands(configuration, False)
-                # error checking
-                if buff is not None:
-                    for item in buff.split("\n"):
-                        if any(match.search(item) for match in self.terminal_stderr_re):
-                            raise MergeConfigException("Merge issue: %s", item)
-
-        except MergeConfigException as me:
-            print("Merge issue : {}".format(me))
-            log.error("Merge issue : %s" %traceback.format_exc())
+                self.conn.edit_config(
+                    config=configuration,
+                    target="candidate",
+                    default_operation="merge",
+                )
+            self.conn.validate(source="candidate")
+        else:
+            configuration = configuration.split("\n")
+            configuration.insert(0, "edit-config exclusive")
+            buff = self._perform_cli_commands(configuration, False)
+            # error checking
+            if buff is not None:
+                for item in buff.split("\n"):
+                    if any(match.search(item) for match in self.terminal_stderr_re):
+                        log.error("Merge issue: %s", item)
+                        raise MergeConfigException("Merge issue: %s", item)
+            else:
+                raise MergeConfigException("Timeout in load_merge_candidate")
 
     def load_replace_candidate(self, filename=None, config=None):
         """
@@ -501,42 +497,41 @@ class NokiaSROSDriver(NetworkDriver):
             with open(filename) as f:
                 configuration = f.read()
 
-        try:
-            self.fmt = self._determinne_config_format(configuration)
-            if self.fmt == "xml":
-                if not self.lock_disable and not self.session_config_lock:
-                    self._lock_config()
-                configuration = etree.XML(configuration)
-                configuration_tree = etree.ElementTree(configuration)
-                root = configuration_tree.getroot()
-                if root.tag != "{urn:ietf:params:xml:ns:netconf:base:1.0}config":
-                    newroot = etree.Element(
-                        "{urn:ietf:params:xml:ns:netconf:base:1.0}config"
-                    )
-                    newroot.insert(0, root)
-                    self.conn.edit_config(
-                        config=newroot, target="candidate", default_operation="replace",
-                    )
-                else:
-                    self.conn.edit_config(
-                        config=configuration,
-                        target="candidate",
-                        default_operation="replace",
-                    )
-                self.conn.validate(source="candidate")
+        self.fmt = self._determinne_config_format(configuration)
+        if self.fmt == "xml":
+            if not self.lock_disable and not self.session_config_lock:
+                self._lock_config()
+            configuration = etree.XML(configuration)
+            configuration_tree = etree.ElementTree(configuration)
+            root = configuration_tree.getroot()
+            if root.tag != "{urn:ietf:params:xml:ns:netconf:base:1.0}config":
+                newroot = etree.Element(
+                    "{urn:ietf:params:xml:ns:netconf:base:1.0}config"
+                )
+                newroot.insert(0, root)
+                self.conn.edit_config(
+                    config=newroot, target="candidate", default_operation="replace",
+                )
             else:
-                configuration = configuration.split("\n")
-                configuration.insert(0, "edit-config exclusive")
-                configuration.insert(1, "delete configure")
-                buff = self._perform_cli_commands(configuration, False)
-                # error checking
-                if buff is not None:
-                    for item in buff.split("\n"):
-                        if any(match.search(item) for match in self.terminal_stderr_re):
-                            raise ReplaceConfigException("Replace issue: %s", item)
-        except ReplaceConfigException as rex:
-            print("Replace issue: {}".format(rex))
-            log.error("Replace issue: %s" % traceback.format_exc())
+                self.conn.edit_config(
+                    config=configuration,
+                    target="candidate",
+                    default_operation="replace",
+                )
+            self.conn.validate(source="candidate")
+        else:
+            configuration = configuration.split("\n")
+            configuration.insert(0, "edit-config exclusive")
+            configuration.insert(1, "delete configure")
+            buff = self._perform_cli_commands(configuration, False)
+            # error checking
+            if buff is not None:
+                for item in buff.split("\n"):
+                    if any(match.search(item) for match in self.terminal_stderr_re):
+                        log.error("Replace issue: %s", item)
+                        raise ReplaceConfigException("Replace issue: %s", item)
+            else:
+                raise ReplaceConfigException("Timeout in load_replace_candidate")
 
     def get_facts(self):
         """
@@ -604,8 +599,7 @@ class NokiaSROSDriver(NetworkDriver):
                 "interface_list": interface_list,
             }
         except Exception as e:
-            print("Error in method get facts : {}".format(e))
-            log.error("Error in method get facts : %s" % traceback.format_exc())
+            raise self.__ValueError__(e,"get_facts")
 
     def get_interfaces(self):
         # All physical ports and interfaces
@@ -800,8 +794,7 @@ class NokiaSROSDriver(NetworkDriver):
 
             return interfaces
         except Exception as e:
-            print("Error in method get interfaces : {}".format(e))
-            log.error("Error in method get interfaces : %s" % traceback.format_exc())
+            raise self.__ValueError__(e,"get_interfaces")
 
     def get_interfaces_counters(self):
         # (Statistics of all ports and router/interface is taken)
@@ -992,8 +985,7 @@ class NokiaSROSDriver(NetworkDriver):
                 }
             return interface_counters
         except Exception as e:
-            print("Error in method get interfaces counters : {}".format(e))
-            log.error("Error in method get interfaces counters : %s" % traceback.format_exc())
+            raise self.__ValueError__(e,"get_interfaces_counters")
 
     def get_network_instances(self, name=""):
         """
@@ -1081,8 +1073,7 @@ class NokiaSROSDriver(NetworkDriver):
                 _get_interfaces_list(vpls_service)
             return network_instances
         except Exception as e:
-            print("Error in method get network instances : {}".format(e))
-            log.error("Error in method get network instances : %s", traceback.format_exc())
+            raise self.__ValueError__(e,"get_network_instances")
 
     def get_config(
         self,
@@ -1210,8 +1201,7 @@ class NokiaSROSDriver(NetworkDriver):
                     configuration["candidate"] = config_data_candidate_xml
                 return configuration
         except Exception as e:
-            print("Error in method get config : {}".format(e))
-            log.error("Error in method get config : %s" % traceback.format_exc())
+            raise self.__ValueError__(e,"get_config")
 
     def get_optics(self):
         """
@@ -1314,8 +1304,7 @@ class NokiaSROSDriver(NetworkDriver):
                     )
             return optics_dict
         except Exception as e:
-            print("Error in method get optics : {}".format(e))
-            log.error("Error in method get optics : %s" % traceback.format_exc())
+            raise self.__ValueError__(e,"get_optics")
 
     def get_arp_table(self, vrf=""):
         """
@@ -1403,8 +1392,7 @@ class NokiaSROSDriver(NetworkDriver):
                     _get_arp_table(neighbor)
             return arp_table
         except Exception as e:
-            print("Error in method get arp table : {}".format(e))
-            log.error("Error in method get arp table : %s" % traceback.format_exc())
+            raise self.__ValueError__(e,"get_arp_table")
 
     def get_interfaces_ip(self):
         # per router/interface and service/vprn/interface
@@ -1495,8 +1483,7 @@ class NokiaSROSDriver(NetworkDriver):
 
             return interfaces_ip
         except Exception as e:
-            print("Error in method get interfaces ip : {}".format(e))
-            log.error("Error in method get interfaces ip : %s" % traceback.format_exc())
+            raise self.__ValueError__(e,"get_interfaces_ip")
 
     def get_ntp_peers(self):
         """
@@ -1527,8 +1514,7 @@ class NokiaSROSDriver(NetworkDriver):
                 )
             return ntp_peers
         except Exception as e:
-            print("Error in method get ntp peers : {}".format(e))
-            log.error("Error in method get ntp peers : %s" % traceback.format_exc())
+            raise self.__ValueError__(e,"get_ntp_peers")
 
     def get_ntp_servers(self):
         """
@@ -1559,8 +1545,7 @@ class NokiaSROSDriver(NetworkDriver):
                 )
             return ntp_servers
         except Exception as e:
-            print("Error in method get ntp servers : {}".format(e))
-            log.error("Error in method get ntp servers : %s" % traceback.format_exc())
+            raise self.__ValueError__(e,"get_ntp_servers")
 
     def get_ntp_stats(self):
         """
@@ -1628,8 +1613,7 @@ class NokiaSROSDriver(NetworkDriver):
 
             return ntp_stats_list
         except Exception as e:
-            print("Error in method get ntp stats : {}".format(e))
-            log.error("Error in method get ntp stats : %s" % traceback.format_exc())
+            raise self.__ValueError__(e,"get_ntp_stats")
 
     def get_snmp_information(self):
 
@@ -1693,8 +1677,7 @@ class NokiaSROSDriver(NetworkDriver):
 
             return snmp_information
         except Exception as e:
-            print("Error in method get snmp information : {}".format(e))
-            log.error("Error in method get snmp information : %s" % traceback.format_exc())
+            raise self.__ValueError__(e,"get_snmp_information")
 
     def get_users(self):
         """
@@ -1758,8 +1741,7 @@ class NokiaSROSDriver(NetworkDriver):
                 }
             return users_dict
         except Exception as e:
-            print("Error in method get users : {}".format(e))
-            log.error("Error in method get users : %s" % traceback.format_exc())
+            raise self.__ValueError__(e,"get_users")
 
     def get_route_to(self, destination="", protocol="", longer=False):
         """
@@ -2182,8 +2164,7 @@ class NokiaSROSDriver(NetworkDriver):
                                     static_once = True
             return route_to_dict
         except Exception as e:
-            print("Error in method get route to : {}".format(e))
-            log.error("Error in method get route to : %s" % traceback.format_exc())
+            raise self.__ValueError__(e,"get_route_to")
 
     def get_probes_results(self):
         # for base router
@@ -2343,8 +2324,7 @@ class NokiaSROSDriver(NetworkDriver):
 
             return probes_results
         except Exception as e:
-            print("Error in method get probes results : {}".format(e))
-            log.error("Error in method get probes results : %s" % traceback.format_exc())
+            raise self.__ValueError__(e,"get_probes_results")
 
     def get_probes_config(self):
         # for base router
@@ -2421,8 +2401,7 @@ class NokiaSROSDriver(NetworkDriver):
                 )
             return probes_config
         except Exception as e:
-            print("Error in method get probes config : {}".format(e))
-            log.error("Error in method get probes config : %s" % traceback.format_exc())
+            raise self.__ValueError__(e,"get_probes_config")
 
     def get_mac_address_table(self):
         """
@@ -2483,8 +2462,7 @@ class NokiaSROSDriver(NetworkDriver):
 
             return mac_address_list
         except Exception as e:
-            print("Error in method get mac address : {}".format(e))
-            log.error("Error in method get mac address : %s" % traceback.format_exc())
+            raise self.__ValueError__(e,"get_mac_address_table")
 
     def get_bgp_neighbors(self):
         """
@@ -2925,11 +2903,6 @@ class NokiaSROSDriver(NetworkDriver):
                 )
                 _get_bgp_neighbor_group(bgp_neighbor_vprn.xpath("neighbor"), global_as)
 
-            if neighbor and not group:
-                logging.error("Specify a group where to look for given neighbor")
-                neighbor = ""
-                return bgp_config
-
             for bgp_group_router in bgp_running_config.xpath(
                 "configure_ns:configure/configure_ns:router/configure_ns:bgp",
                 namespaces=self.nsmap,
@@ -2989,8 +2962,7 @@ class NokiaSROSDriver(NetworkDriver):
 
             return bgp_config
         except Exception as e:
-            print("Error in method get bgp config : {}".format(e))
-            log.error("Error in method get bgp config : %s" % traceback.format_exc())
+            raise self.__ValueError__(e,"get_bgp_config")
 
     def get_lldp_neighbors(self):
         """
@@ -3040,8 +3012,7 @@ class NokiaSROSDriver(NetworkDriver):
 
             return lldp_neighbors
         except Exception as e:
-            print("Error in method get lldp neighbors : {}".format(e))
-            log.error("Error in method get lldp neighbors : %s" % traceback.format_exc())
+            raise self.__ValueError__(e,"get_lldp_neighbors")
 
     def get_lldp_neighbors_detail(self, interface=""):
         """
@@ -3131,8 +3102,7 @@ class NokiaSROSDriver(NetworkDriver):
                 )
             return lldp_neighbors_details
         except Exception as e:
-            print("Error in method get lldp neighbors detail : {}".format(e))
-            log.error("Error in method get lldp neighbors detail : %s" % traceback.format_exc())
+            raise self.__ValueError__(e,"get_lldp_neighbors_detail")
 
     def get_environment(self):
         """
@@ -3336,8 +3306,7 @@ class NokiaSROSDriver(NetworkDriver):
                 )
             return environment_data
         except Exception as e:
-            print("Error in method get environment data : {}".format(e))
-            log.error("Error in method get environment data : %s" % traceback.format_exc())
+            raise self.__ValueError__(e,"get_environment")
 
 
     def get_ipv6_neighbors_table(self):
@@ -3412,8 +3381,7 @@ class NokiaSROSDriver(NetworkDriver):
 
             return ipv6_neighbor_list
         except Exception as e:
-            print("Error in method get ipv6 neighbors : {}".format(e))
-            log.error("Error in method get ipv6 neighbors : %s" % traceback.format_exc())
+            raise self.__ValueError__(e,"get_ipv6_neighbors_table")
 
     def ping(
         self,
