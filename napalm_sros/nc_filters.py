@@ -427,7 +427,10 @@ GET_BGP_CONFIG = {
                     <cluster>
                         <cluster-id/>
                     </cluster>
-
+                    <multipath>
+                     <ebgp/>
+                     <ibgp/>
+                    </multipath>
                     <group>
                         <group-name>{group_name}</group-name>
                         <description/>
@@ -449,7 +452,6 @@ GET_BGP_CONFIG = {
                         <remove-private>
                             <limited/>
                         </remove-private>
-                        <multipath-eligible/>
                         <prefix-limit>
                             <family/>
                             <maximum/>
@@ -461,6 +463,7 @@ GET_BGP_CONFIG = {
                     <neighbor>
                         <ip-address>{neighbor}</ip-address>
                         <group/>
+                        <type/>
                         <authentication-keychain/>
                         <description/>
                         <peer-as/>
@@ -508,7 +511,10 @@ GET_BGP_CONFIG = {
                     <cluster>
                         <cluster-id/>
                     </cluster>
-
+                    <multipath>
+                     <ebgp/>
+                     <ibgp/>
+                    </multipath>
                     <group>
                         <group-name>{group_name}</group-name>
                         <description/>
@@ -541,10 +547,10 @@ GET_BGP_CONFIG = {
                             <cluster-id/>
                         </cluster>
                     </group>
-
                     <neighbor>
                         <ip-address>{neighbor}</ip-address>
                         <group/>
+                        <type/>
                         <authentication-keychain/>
                         <description/>
                         <peer-as/>
