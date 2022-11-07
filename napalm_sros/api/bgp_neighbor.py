@@ -53,6 +53,8 @@ class BGPNeighbor:
     self.vrf = vrf
     self.conf = data.xpath( f"//configure_ns:ip-address[ text()='{ip_address}']/..", namespaces=NSMAP)
 
+    # print( f"Read BGP neighbor { to_xml(self.conf[0] if self.conf else data) }" )
+
     # Lookup corresponding group config
     if self.conf:
       group = _find_txt(self.conf[0],"configure_ns:group")
@@ -71,12 +73,22 @@ class BGPNeighbor:
     return _find_txt(self.state,f"state_ns:statistics/state_ns:{attr}")
 
   def conf_str(self,attr: str):
-    return _find_txt(self.conf[0],f"configure_ns:{attr}") if self.conf else ""
+    """
+    Retrieves an XML string from the configuration section, using XPath
+    Follows neighbor -> group hierarchy
+    """
+    if self.conf:
+      _s = _find_txt(self.conf[0],f"configure_ns:{attr}")
+      if _s:
+        return _s
+    if self.group_conf:
+      _s = _find_txt(self.group_conf[0],f"configure_ns:{attr}")
+      if _s:
+        return _s
+    return ""
 
   def conf_int(self,attr: str,default=0):
-    if self.conf:
-      return convert( int, _find_txt(self.conf[0],f"configure_ns:{attr}")) or default
-    return default
+    return convert( int, self.conf_str(attr) or default )
 
   def conf_bool(self,attr:str):
     return self.conf_str(attr).lower() == "true"
@@ -107,10 +119,27 @@ class BGPNeighbor:
     """
     local_as = 0
     if self.conf:
-      local_as = _find_txt(self.conf[0],"//configure_ns:as-number")
+      local_as = _find_txt(self.conf[0],"configure_ns:local-as/configure_ns:as-number")
     if not local_as and self.group_conf: # dynamic neighbor
-      local_as = _find_txt(self.group_conf[0],"//configure_ns:as-number")
+      local_as = _find_txt(self.group_conf[0],"configure_ns:local-as/configure_ns:as-number")
     return convert( int, local_as ) or self.node_as
+
+  def remote_as(self) -> int:
+    """
+    Returns remote AS number as determined by configuration, accounting for override
+    at neighbor or group level.
+
+    Note: 'peer-as' in state is only set for dynamic neighbors (handled elsewhere)
+    """
+    remote_as = 0
+    if self.conf:
+      remote_as = _find_txt(self.conf[0],"configure_ns:peer-as")
+    if not remote_as and self.group_conf: # check group level
+      remote_as = _find_txt(self.group_conf[0],"configure_ns:peer-as")
+
+    if not remote_as: # Can be unconfigured for ibgp with type=internal
+      return self.local_as()
+    return convert( int, remote_as )
 
   def conf_policies(self,attr:str) -> str:
     """

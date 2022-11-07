@@ -33,6 +33,7 @@ NEIGHBOR_CONF = """
 <autonomous-system/>
 <bgp>
     <group>
+    <peer-as/>
     <local-as>
      <as-number/>
     </local-as>
@@ -150,7 +151,7 @@ def get_bgp_neighbors(conn):
     is_dynamic = nb.state_str('dynamically-configured')=="true"
     peer = {
       'local_as': nb.local_as(),
-      'remote_as': nb.state_int('peer-as') if is_dynamic else nb.conf_int('peer-as'),
+      'remote_as': nb.state_int('peer-as') if is_dynamic else nb.remote_as(),
       'remote_id': nb.state_str('peer-identifier'),
       'is_up': nb.state_str('session-state').lower()=="established",
       'is_enabled': nb.conf_str('admin-state') == "enable" or is_dynamic,

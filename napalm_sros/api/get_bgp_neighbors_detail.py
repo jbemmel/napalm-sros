@@ -28,44 +28,45 @@ from .bgp_neighbor import BGPNeighbor
 #
 # Netconf filters to retrieve only required attributes
 #
+CONF_ITEMS = """
+<peer-as/>
+<local-as>
+ <as-number/>
+ <prepend-global-as/>
+</local-as>
+<local-address/>
+<multihop/>
+<multipath-eligible/>
+<asn-4-byte/>
+<keepalive/>
+<remove-private>
+ <limited/>
+</remove-private>
+<import>
+ <policy/>
+</import>
+<export>
+ <policy/>
+</export>
+<hold-time>
+ <seconds/>
+ <minimum-hold-time/>
+</hold-time>
+"""
+
 NEIGHBOR_CONF = """
 <autonomous-system/>
 <bgp>
     <group>
-    <local-as>
-     <as-number/>
-    </local-as>
     <dynamic-neighbor/>
-    <import/>
-    <export/>
+    """+CONF_ITEMS+"""
     </group>
     <neighbor>
         <ip-address>{neighbor_address}</ip-address>
         <group/>
         <admin-state/>
         <description/>
-        <peer-as/>
-        <local-as>
-         <as-number/>
-        </local-as>
-        <local-address/>
-        <multihop/>
-        <multipath-eligible/>
-        <asn-4-byte/>
-        <keepalive/>
-        <remove-private>
-         <limited/>
-        </remove-private>
-        <import>
-         <policy/>
-        </import>
-        <export>
-         <policy/>
-        </export>
-        <hold-time>
-         <seconds/>
-         <minimum-hold-time/>
-        </hold-time>
+    """+CONF_ITEMS+"""
     </neighbor>
 </bgp>
 """
@@ -168,7 +169,7 @@ def get_bgp_neighbors_detail(conn,neighbor_address=""):
     peer = {
       'up': session_state.lower()=="established",
       'local_as': nb.local_as(),
-      'remote_as': nb.state_int('peer-as') or nb.conf_int('peer-as'),
+      'remote_as': nb.state_int('peer-as') or nb.remote_as(),
       'router_id': nb.state_str('peer-identifier'),
       'local_address': nb.state_str('operational-local-address'),
       'routing_table': nb.vrf,
