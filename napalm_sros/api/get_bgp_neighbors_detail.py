@@ -28,45 +28,49 @@ from .bgp_neighbor import BGPNeighbor
 #
 # Netconf filters to retrieve only required attributes
 #
-CONF_ITEMS = """
-<peer-as/>
+GLOBAL_CONF_ITEMS = """
 <local-as>
  <as-number/>
  <prepend-global-as/>
 </local-as>
-<local-address/>
 <multihop/>
-<multipath-eligible/>
 <asn-4-byte/>
 <keepalive/>
 <remove-private>
  <limited/>
 </remove-private>
-<import>
- <policy/>
-</import>
-<export>
- <policy/>
-</export>
+<import/>
+<export/>
 <hold-time>
  <seconds/>
  <minimum-hold-time/>
 </hold-time>
 """
 
+GROUP_CONF_ITEMS = """
+""" + GLOBAL_CONF_ITEMS + """
+<peer-as/>
+<local-address/>
+"""
+
 NEIGHBOR_CONF = """
 <autonomous-system/>
 <bgp>
+    """+GLOBAL_CONF_ITEMS+"""
+    <multipath>
+     <ibgp/>
+     <ebgp/>
+    </multipath>
     <group>
-    <dynamic-neighbor/>
-    """+CONF_ITEMS+"""
+     <dynamic-neighbor/>
+     """+GROUP_CONF_ITEMS+"""
     </group>
     <neighbor>
         <ip-address>{neighbor_address}</ip-address>
         <group/>
         <admin-state/>
         <description/>
-    """+CONF_ITEMS+"""
+    """+GROUP_CONF_ITEMS+"""
     </neighbor>
 </bgp>
 """
@@ -165,20 +169,23 @@ def get_bgp_neighbors_detail(conn,neighbor_address=""):
 
     session_state = nb.state_str('session-state')
     count = nb.counters( attrs=['active','suppressed','rejected','sent','received'], total=True )
-
+    _local_as = nb.local_as()
+    _remote_as = nb.state_int('peer-as') or nb.remote_as()
+    _xbgp = "ibgp" if _local_as==_remote_as else "ebgp"
+    _multipath = nb.conf_int(f'multipath/configure_ns:{_xbgp}') # Note: global only
     peer = {
       'up': session_state.lower()=="established",
-      'local_as': nb.local_as(),
-      'remote_as': nb.state_int('peer-as') or nb.remote_as(),
+      'local_as': _local_as,
+      'remote_as': _remote_as,
       'router_id': nb.state_str('peer-identifier'),
       'local_address': nb.state_str('operational-local-address'),
       'routing_table': nb.vrf,
-      'local_address_configured': nb.conf_str('local-address') != "",
+      'local_address_configured': nb.conf_str('local-address',include_global=False) != "",
       'local_port': nb.state_int('local-port'),
       'remote_address': nb.ip_address,
       'remote_port': nb.state_int('peer-port'),
-      'multihop': nb.conf_int('multihop') > 0,
-      'multipath': nb.conf_str('multipath-eligible') != "false",
+      'multihop': nb.conf_int('multihop',include_global=True) > 0,
+      'multipath': _multipath > 1,
       'remove_private_as': nb.conf_bool('remove-private/configure_ns:limited'),
       'import_policy': nb.conf_policies('import/configure_ns:policy'),
       'export_policy': nb.conf_policies('export/configure_ns:policy'),

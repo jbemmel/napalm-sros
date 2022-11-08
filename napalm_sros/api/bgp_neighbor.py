@@ -51,9 +51,11 @@ class BGPNeighbor:
     self.ip_address = ip_address
     self.node_as = node_as
     self.vrf = vrf
+    self.bgp = data.xpath(base_path+"/../configure_ns:bgp", namespaces=NSMAP) # for global atts like import/export policies
     self.conf = data.xpath( f"//configure_ns:ip-address[ text()='{ip_address}']/..", namespaces=NSMAP)
 
     # print( f"Read BGP neighbor { to_xml(self.conf[0] if self.conf else data) }" )
+    # print( f"Read BGP neighbor {ip_address} { to_xml(data) }" )
 
     # Lookup corresponding group config
     if self.conf:
@@ -72,23 +74,25 @@ class BGPNeighbor:
   def state_str(self,attr: str):
     return _find_txt(self.state,f"state_ns:statistics/state_ns:{attr}")
 
-  def conf_str(self,attr: str):
+  def conf_str(self,attr: str, allow_from_group:bool = True, include_global:bool = True ):
     """
     Retrieves an XML string from the configuration section, using XPath
-    Follows neighbor -> group hierarchy
+    Follows neighbor -> group -> global hierarchy
     """
-    if self.conf:
-      _s = _find_txt(self.conf[0],f"configure_ns:{attr}")
-      if _s:
-        return _s
-    if self.group_conf:
-      _s = _find_txt(self.group_conf[0],f"configure_ns:{attr}")
+    sources = [ self.conf[0] ] if self.conf else []
+    if self.group_conf and allow_from_group:
+      sources.append( self.group_conf[0] )
+    if include_global:
+      sources.append( self.bgp[0] ) # for global
+
+    for src in sources:
+      _s = _find_txt(src,f"configure_ns:{attr}")
       if _s:
         return _s
     return ""
 
-  def conf_int(self,attr: str,default=0):
-    return convert( int, self.conf_str(attr) or default )
+  def conf_int(self,attr: str,default=0,include_global=True):
+    return convert( int, self.conf_str(attr,include_global=include_global) or default )
 
   def conf_bool(self,attr:str):
     return self.conf_str(attr).lower() == "true"
@@ -143,11 +147,12 @@ class BGPNeighbor:
 
   def conf_policies(self,attr:str) -> str:
     """
-    Returns import or export policies configured at neighbor or group level
+    Returns import or export policies configured at neighbor, group or global level
     """
     sources = [ self.conf[0] ] if self.conf else []
     if self.group_conf:
       sources.append( self.group_conf[0] )
+    sources.append( self.bgp[0] ) # for global import/export policies
     for src in sources:
       policies = [ele.text for ele in src.xpath(f"configure_ns:{attr}",namespaces=NSMAP)]
       if policies:

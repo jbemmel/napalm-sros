@@ -155,7 +155,7 @@ def get_bgp_neighbors(conn):
       'remote_id': nb.state_str('peer-identifier'),
       'is_up': nb.state_str('session-state').lower()=="established",
       'is_enabled': nb.conf_str('admin-state') == "enable" or is_dynamic,
-      'description': "Dynamic neighbor" if is_dynamic else nb.conf_str('description'),
+      'description': "Dynamic neighbor" if is_dynamic else nb.conf_str('description',allow_from_group=False),
       'uptime': convert(int,uptime), # Current or time since down if is_up=False
       'address_family': {
         'ipv4': {
