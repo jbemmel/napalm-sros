@@ -2662,7 +2662,12 @@ class NokiaSROSDriver(NetworkDriver):
                 policies = [ele.text for ele in policies_xml]
                 return ", ".join(policies)
 
-            def _get_bgp_neighbor_group(bgp_neighbors, global_autonomous):
+            def _route_reflect(xml):
+              _cluster_id = self._find_txt(xml,"configure_ns:cluster/configure_ns:cluster-id",namespaces=self.nsmap)
+              _client_reflect = self._find_txt(xml,"configure_ns:client-reflect", namespaces=self.nsmap)
+              return (bool(_cluster_id),_client_reflect) # keep client_reflect as string to distinguish between not set and 'false'
+
+            def _get_bgp_neighbor_group(bgp_neighbors,global_autonomous):
                 for bgp_neighbor in bgp_neighbors:
                     group_name = self._find_txt(
                         bgp_neighbor, "configure_ns:group", namespaces=self.nsmap
@@ -2685,27 +2690,14 @@ class NokiaSROSDriver(NetworkDriver):
                         bgp_neighbor, "configure_ns:type", namespaces=self.nsmap
                     ) or _group_attr('type')
 
-                    nhs = (
-                        True
-                        if self._find_txt(
-                            bgp_neighbor,
-                            "configure_ns:next-hop-self",
-                            namespaces=self.nsmap,
-                        )
-                        == "true"
-                        else False
+                    _nhs = self._find_txt(
+                        bgp_neighbor,"configure_ns:next-hop-self",namespaces=self.nsmap,
                     )
-                    cluster_id = self._find_txt(
-                        bgp_neighbor,
-                        "configure_ns:cluster/configure_ns:cluster-id",
-                        namespaces=self.nsmap,
-                    )
-                    client_reflect = self._find_txt(
-                        bgp_neighbor, "configure_ns:client-reflect", namespaces=self.nsmap
-                    )
-                    route_reflector = ""
-                    if cluster_id and client_reflect == "true":
-                        route_reflector = True
+                    _next_hop_self = (_nhs != "false") if _nhs else _group_attr('_nhs')
+
+                    _cluster_id,_client_reflect = _route_reflect(bgp_neighbor)
+                    route_reflector = (_cluster_id or _group_attr('_cluster_id')) \
+                                  and (_group_attr('_client_reflect') and _client_reflect=="")
 
                     explicit_local_as = self._find_txt(
                         bgp_neighbor,
@@ -2763,18 +2755,19 @@ class NokiaSROSDriver(NetworkDriver):
                                 namespaces=self.nsmap,
                             ),
                         ),
+                        # Note: ignoring any group level authentication key here
                         "authentication_key": self._find_txt(
                             bgp_neighbor,
                             "configure_ns:authentication-key",
                             namespaces=self.nsmap,
                         ),
-                        "nhs": nhs,
+                        "nhs": bool(_next_hop_self),
                         "route_reflector_client": route_reflector,
                     }
                     if neighbor != "" and peer == neighbor:
                         break
 
-            def _get_bgp_group_data(bgp_groups_list,local_as_number):
+            def _get_bgp_group_data(bgp_groups_list,local_as_number,g_cluster_id,g_client_reflect):
                 for bgp_group in bgp_groups_list:
                     group_name = self._find_txt(
                         bgp_group, "configure_ns:group-name", namespaces=self.nsmap
@@ -2821,25 +2814,10 @@ class NokiaSROSDriver(NetworkDriver):
                     )
                     multipath = bool( peer_as and max_path and int(max_path)>1 )
 
-                    nhs = (
-                        True
-                        if self._find_txt(
-                            bgp_group, "configure_ns:next-hop-self", namespaces=self.nsmap
-                        )
-                        == "true"
-                        else False
-                    )
-                    cluster_id = self._find_txt(
-                        bgp_group,
-                        "configure_ns:cluster/configure_ns:cluster-id",
-                        namespaces=self.nsmap,
-                    )
-                    client_reflect = self._find_txt(
-                        bgp_group, "configure_ns:client-reflect", namespaces=self.nsmap
-                    )
-                    route_reflector = False
-                    if cluster_id and client_reflect == "true":
-                        route_reflector = True
+                    _nhs = self._find_txt(bgp_group, "configure_ns:next-hop-self", namespaces=self.nsmap)
+                    # Can only set client_reflect to 'false' at group level
+                    _cluster_id,_client_reflect = _route_reflect(bgp_group)
+
                     apply_groups_list = []
                     for apply_group in bgp_group.xpath(
                         "configure_ns:apply-groups", namespaces=self.nsmap
@@ -2884,8 +2862,9 @@ class NokiaSROSDriver(NetworkDriver):
                             default=-1,
                         ),
                         "prefix_limit": _build_prefix_limit(bgp_group),
-                        "_nhs": nhs,
-                        "_route_reflector_client": route_reflector,
+                        "_nhs": bool(_nhs != "false"),
+                        "_cluster_id": g_cluster_id or bool(_cluster_id),
+                        "_client_reflect": g_client_reflect and _client_reflect=="",
                         "neighbors": {},
                     }
                     if group != "" and group == group_name:
@@ -2911,9 +2890,11 @@ class NokiaSROSDriver(NetworkDriver):
                 "configure_ns:configure/configure_ns:router/configure_ns:bgp",
                 namespaces=self.nsmap,
             ):
+                _cluster_id,_client_reflect = _route_reflect(router)
                 _get_bgp_group_data(
                     router.xpath("configure_ns:group", namespaces=self.nsmap),
-                    local_as_number=int(global_as)
+                    local_as_number=int(global_as),
+                    g_cluster_id=_cluster_id,g_client_reflect=_client_reflect
                 )
                 _get_bgp_neighbor_group(
                     router.xpath("configure_ns:neighbor", namespaces=self.nsmap),
@@ -2928,33 +2909,24 @@ class NokiaSROSDriver(NetworkDriver):
                     vprn,"../configure_ns:autonomous-system",
                     namespaces=self.nsmap,
                 )
+                _cluster_id,_client_reflect = _route_reflect(vprn)
                 _get_bgp_group_data(
                     vprn.xpath("configure_ns:group", namespaces=self.nsmap),
-                    local_as_number=int(vprn_as)
+                    local_as_number=int(vprn_as),
+                    g_cluster_id=_cluster_id,g_client_reflect=_client_reflect
                 )
                 _get_bgp_neighbor_group(
                     vprn.xpath("configure_ns:neighbor",namespaces=self.nsmap),
-                    vprn_as)
+                    vprn_as,
+                )
 
             # Assemble groups and neighbors
             for grp_name, grp_data in bgp_groups.items():
                 neighbors = bgp_group_neighbors.get(grp_name, {})
 
-                # Update values from group level
-                for n_data in neighbors.values():
-                    # Update NHS from group level
-                    if not n_data.get("nhs"):
-                        n_data["nhs"] = grp_data.get("_nhs")
-                    # Update remote-as to local-as when group is internal
-                    if grp_data.get("type") == "internal":
-                        n_data["remote_as"] = n_data.get("local_as")
-                    # Update route_reflector_client from group_level
-                    if not n_data.get("route_reflector_client"):
-                        n_data["route_reflector_client"] = grp_data.get(
-                            "_route_reflector_client"
-                        )
-                grp_data.pop("_nhs")  # remove temporary key
-                grp_data.pop("_route_reflector_client")  # remove temporary key
+                grp_data.pop("_nhs")  # remove temporary keys
+                grp_data.pop("_cluster_id")
+                grp_data.pop("_client_reflect")
 
                 grp_data["neighbors"] = neighbors  # Add updated neighbors to group
 

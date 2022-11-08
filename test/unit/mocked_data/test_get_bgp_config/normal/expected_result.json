@@ -40,11 +40,11 @@
     }
   },
   "ibgp": {
-    "type": "internal",
+    "type": "external",
     "description": "",
     "apply_groups": [],
     "local_as": 65123,
-    "remote_as": 65123,
+    "remote_as": 0,
     "remove_private_as": false,
     "import_policy": "",
     "export_policy": "",
@@ -118,37 +118,24 @@
         "export_policy": "",
         "local_address": "",
         "authentication_key": "",
-        "nhs": false,
+        "nhs": true,
         "route_reflector_client": false
       }
     }
   },
   "ebgp-vprn2": {
-    "type": "external",
+    "type": "no-type",
     "description": "",
     "apply_groups": [],
     "local_as": 65002,
-    "remote_as": 65000,
-    "remove_private_as": false,
+    "remote_as": 0,
+    "remove_private_as": true,
     "import_policy": "",
-    "export_policy": "",
-    "local_address": "",
+    "export_policy": "reject_all",
+    "local_address": "192.0.0.3",
     "multipath": false,
     "multihop_ttl": -1,
     "prefix_limit": {},
-    "neighbors": {
-      "192.0.0.2": {
-        "description": "",
-        "local_as": 65002,
-        "remote_as": 65000,
-        "prefix_limit": {},
-        "import_policy": "",
-        "export_policy": "",
-        "local_address": "",
-        "authentication_key": "",
-        "nhs": false,
-        "route_reflector_client": false
-      }
-    }
+    "neighbors": {}
   }
 }
