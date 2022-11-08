@@ -75,14 +75,24 @@ class NokiaSROSDriver(NetworkDriver):
         self.locked = False
         self.terminal_stdout_re = [
             re.compile(
-                "[\r\n]*\!?\*?(\((ex|gl|pr|ro)\))?\[.*\][\r\n]+[ABCD]\:\S+\@\S+\#\s$"
+                r"[\r\n]*\!?\*?(\((ex|gl|pr|ro)\))?\[.*\][\r\n]+[ABCD]\:\S+\@\S+\#\s$"
             ),
-            re.compile("[\r\n]*\*?[ABCD]:[\w\-\.\,\>]+[#\$]\s"),
+            re.compile(r"[\r\n]*\*?[ABCD]:[\w\-\.\,\>]+[#\$]\s"),
         ]
         self.terminal_stderr_re = [
             re.compile("Error: .*[\r\n]+"),
             re.compile("(MINOR|MAJOR|CRITICAL): .*[\r\n]+"),
         ]
+
+        self.ipv4_address_re = re.compile(
+            r"(([2][5][0-5]\.)|([2][0-4][0-9]\.)|([0-1]?[0-9]?[0-9]\.)){3}"
+            + "(([2][5][0-5])|([2][0-4][0-9])|([0-1]?[0-9]?[0-9]))"
+        )
+
+        self.ipv6_address_re = re.compile(
+          r"(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))"
+        )
+        self.cmd_line_pattern_re = re.compile(r"\*?(.*?)(>.*)*#.*?")
 
         if optional_args is None:
             optional_args = {}
@@ -327,9 +337,8 @@ class NokiaSROSDriver(NetworkDriver):
             buff = self._perform_cli_commands(["commit"], True)
             # If error while performing commit, return the error
             error = ""
-            cmd_line_pattern = re.compile("\*?(.*?)(>.*)*#\s")
             for item in buff.split("\n"):
-                if cmd_line_pattern.search(item):
+                if self.cmd_line_pattern_re.search(item):
                     continue
                 if any(match.search(item) for match in self.terminal_stderr_re):
                     row = item.strip()
@@ -371,7 +380,6 @@ class NokiaSROSDriver(NetworkDriver):
         buff = ""
         if self.fmt == "text":
             buff = self._perform_cli_commands( ["compare"], True, no_more=True )
-            cmd_line_pattern = re.compile("\*?(.*?)(>.*)*#.*?")
             # buff = self._perform_cli_commands(["/environment more false", "compare"])
         else:
             #  if format is xml we convert them into dict and perform a diff on configs to return the difference
@@ -411,7 +419,7 @@ class NokiaSROSDriver(NetworkDriver):
                     continue
                 elif "/environment more false" in item:
                     continue
-                elif cmd_line_pattern.search(item):
+                elif self.cmd_line_pattern_re.search(item):
                     continue
                 elif self.terminal_stdout_re[0].search(item):
                     continue
@@ -1130,7 +1138,6 @@ class NokiaSROSDriver(NetworkDriver):
                     else:
                         updated_buff = [buff]
                     new_buff = ""
-                    cmd_line_pattern = re.compile("\*?(.*?)(>.*)*#.*?")
                     match_strings = [
                         cmd_candidate[0],
                         cmd_candidate[1],
@@ -1144,7 +1151,7 @@ class NokiaSROSDriver(NetworkDriver):
                             continue
                         if "[]" in item:
                             continue
-                        elif cmd_line_pattern.search(item) or not row:
+                        elif self.cmd_line_pattern_re.search(item) or not row:
                             continue
                         elif "persistent-indices" in item:
                             break
@@ -1192,7 +1199,7 @@ class NokiaSROSDriver(NetworkDriver):
                     )
                     # remove xml declaration
                     config_data_running_xml = re.sub(
-                        "<\?xml.*\?>", "", config_data_running_xml
+                        r"<\?xml.*\?>", "", config_data_running_xml
                     )
                     configuration["running"] = config_data_running_xml
 
@@ -1209,7 +1216,7 @@ class NokiaSROSDriver(NetworkDriver):
                         )[0]
                     )
                     config_data_candidate_xml = re.sub(
-                        "<\?xml.*\?>", "", config_data_candidate_xml
+                        r"<\?xml.*\?>", "", config_data_candidate_xml
                     )
                     configuration["candidate"] = config_data_candidate_xml
                 return configuration
@@ -1586,17 +1593,13 @@ class NokiaSROSDriver(NetworkDriver):
 
             # helper method
             def _get_ntp_stats_data(buff):
-                ip_pattern = re.compile(
-                    "(([2][5][0-5]\.)|([2][0-4][0-9]\.)|([0-1]?[0-9]?[0-9]\.)){3}"
-                    + "(([2][5][0-5])|([2][0-4][0-9])|([0-1]?[0-9]?[0-9]))"
-                )
                 dashed_row = False
                 temp_dict = {}
                 for item in buff.split("\n"):
                     if "---" in item:
                         dashed_row = True
                         continue
-                    if ip_pattern.search(item) or dashed_row:
+                    if self.ipv4_address_re.search(item) or dashed_row:
                         row = item.strip()
                         row_list = row.split()
                         if len(row_list) == 8:
@@ -1875,10 +1878,8 @@ class NokiaSROSDriver(NetworkDriver):
                     elif "Next-Hop" in item_1:
                         row_1 = item_1.strip()
                         row_1_list = row_1.split(": ")
-                        if ip_pattern.search(row_1_list[1]):
-                            temp_2_dict = {"selected_next_hop": True}
-                        else:
-                            temp_2_dict = {"selected_next_hop": False}
+                        _sel = self.ipv4_address_re.search(row_1_list[1])
+                        temp_2_dict = {"selected_next_hop": bool(_sel)}
                         if "Indirect" in item_1:
                             if next_hop_once:
                                 next_hop = row_1_list[1]
@@ -2122,11 +2123,6 @@ class NokiaSROSDriver(NetworkDriver):
                     self._find_txt(vprn, "state_ns:oper-service-id", namespaces=self.nsmap)
                 )
 
-            ip_pattern = re.compile(
-                "(([2][5][0-5]\.)|([2][0-4][0-9]\.)|([0-1]?[0-9]?[0-9]\.)){3}"
-                + "(([2][5][0-5])|([2][0-4][0-9])|([0-1]?[0-9]?[0-9]))"
-            )
-
             for name in name_list:
 
                 bgp_once = False
@@ -2146,7 +2142,7 @@ class NokiaSROSDriver(NetworkDriver):
 
                 buff = self._perform_cli_commands([cmd], True, no_more=True)
                 for item in buff.split("\n"):
-                    if ip_pattern.search(item):
+                    if self.ipv4_address_re.search(item):
                         if "# show" in item:
                             continue
                         row = item.strip()
@@ -3208,7 +3204,7 @@ class NokiaSROSDriver(NetworkDriver):
                     total_power_modules = total_power_modules + 1
                 if "Current Util." in item:
                     row = item.strip()
-                    watts = re.match("^.*:\s*(\d+[.]\d+) Watts.*$", item)
+                    watts = re.match(r"^.*:\s*(\d+[.]\d+) Watts.*$", item)
                     if watts:
                         output = float(watts.groups()[0])
 
@@ -3342,13 +3338,10 @@ class NokiaSROSDriver(NetworkDriver):
             for name in name_list:
                 cmd = [f"/show router {name} neighbor"]
                 buff = self._perform_cli_commands(cmd, True, no_more=True)
-                ipv6_address_regex = re.compile(
-                    "(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))"
-                )
                 prev_row = ""
                 ip_address = ""
                 for item in buff.split("\n"):
-                    if ipv6_address_regex.search(item) or prev_row:
+                    if self.ipv6_address_re.search(item) or prev_row:
                         row = item.strip()
                         prev_row = row
                         row_list = row.split()
@@ -3556,11 +3549,10 @@ class NokiaSROSDriver(NetworkDriver):
             for cmd in commands:
                 buff = self._perform_cli_commands([cmd], True)
                 new_buff = ""
-                cmd_line_pattern = re.compile("\*?(.*?)(>.*)*#\s")
                 for item in buff.split("\n"):
                     if "[]" in item:
                         continue
-                    elif cmd_line_pattern.search(item):
+                    elif self.cmd_line_pattern_re.search(item):
                         continue
                     else:
                         row = item.strip()
