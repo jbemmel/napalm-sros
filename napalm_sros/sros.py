@@ -3098,210 +3098,194 @@ class NokiaSROSDriver(NetworkDriver):
             print("Error in method get lldp neighbors detail : {}".format(e))
             log.error("Error in method get lldp neighbors detail : %s" % traceback.format_exc())
 
-    def get_environment(self):
-        """
-            Returns a dictionary where:
+        def get_environment(self):
+            """
+                Returns a dictionary where:
 
-                fans is a dictionary of dictionaries where the key is the location and the values:
-                    status (True/False) - True if it’s ok, false if it’s broken
-                temperature is a dict of dictionaries where the key is the location and the values:
-                    temperature (float) - Temperature in celsius the sensor is reporting.
-                is_alert (True/False) - True if the temperature is above the alert threshold
-                is_critical (True/False) - True if the temp is above the critical threshold
-                power is a dictionary of dictionaries where the key is the PSU id and the values:
-                    status (True/False) - True if it’s ok, false if it’s broken
-                    capacity (float) - Capacity in W that the power supply can support
-                    output (float) - Watts drawn by the system
-                cpu is a dictionary of dictionaries where the key is the ID and the values
-                    %usage
-                memory is a dictionary with:
-                    available_ram (int) - Total amount of RAM installed in the device
-                    used_ram (int) - RAM in use in the device
-        """
-        try:
-            environment_data = {
-                "fans": {},
-                "power": {},
-                "temperature": {},
-                "memory": {},
-            }
-
-            # helpers functions
-            def _build_temperature_dict(instance, choice=1):
-                temp = convert(
-                    float,
-                    self._find_txt(
-                        instance,
-                        "state_ns:hardware-data/state_ns:temperature",
-                        namespaces=self.nsmap,
-                    ),
-                )
-                if temp == "":
-                    return
-                temp_thresh = convert(
-                    float,
-                    self._find_txt(
-                        instance,
-                        "state_ns:hardware-data/state_ns:temperature-threshold",
-                        namespaces=self.nsmap,
-                    ),
-                )
-                if temp_thresh == "":
-                    return
-
-                # Assume warning temperature is 80% of the threshold tempearature
-                temp_warn = 0.8 * temp_thresh
-
-                data = {
-                    "temperature": temp,
-                    "is_alert": True if temp >= temp_warn else False,
-                    "is_critical": True if temp >= temp_thresh else False,
+                    fans is a dictionary of dictionaries where the key is the location and the values:
+                        status (True/False) - True if it’s ok, false if it’s broken
+                    temperature is a dict of dictionaries where the key is the location and the values:
+                        temperature (float) - Temperature in celsius the sensor is reporting.
+                    is_alert (True/False) - True if the temperature is above the alert threshold
+                    is_critical (True/False) - True if the temp is above the critical threshold
+                    power is a dictionary of dictionaries where the key is the PSU id and the values:
+                        status (True/False) - True if it’s ok, false if it’s broken
+                        capacity (float) - Capacity in W that the power supply can support
+                        output (float) - Watts drawn by the system
+                    cpu is a dictionary of dictionaries where the key is the ID and the values
+                        %usage
+                    memory is a dictionary with:
+                        available_ram (int) - Total amount of RAM installed in the device
+                        used_ram (int) - RAM in use in the device
+            """
+            try:
+                environment_data = {
+                    "fans": {},
+                    "power": {},
+                    "temperature": {},
+                    "memory": {},
                 }
 
-                if choice == 1:
-                    environment_data["temperature"].update({"cpm": {}})
-                    environment_data["temperature"]["cpm"].update(data)
-                elif choice == 2:
-                    environment_data["temperature"].update({"card": {}})
-                    environment_data["temperature"]["card"].update(data)
-                elif choice == 3:
-                    environment_data["temperature"].update({"mda": {}})
-                    environment_data["temperature"]["mda"].update(data)
+                # helpers functions
+                def _build_temperature_dict(instance, location):
+                    _data = {}
+                    for k in ("temperature","temperature-threshold"):
+                       _s = self._find_txt(
+                           instance,
+                           f"state_ns:hardware-data/state_ns:{k}",
+                           namespaces=self.nsmap,
+                       ) or 0.0
+                       _data[k] = convert( float, _s )
 
-            result = to_ele(
-                self.conn.get(
-                    filter=GET_ENVIRONMENT["_"], with_defaults="report-all"
-                ).data_xml
-            )
+                    # Assume warning temperature is 80% of the threshold tempearature
+                    _temp = _data["temperature"]
+                    _temp_warn = 0.8 * _data["temperature-threshold"]
 
-            for fan in result.xpath(
-                "state_ns:state/state_ns:chassis/state_ns:fan", namespaces=self.nsmap
-            ):
-                fan_slot = self._find_txt(fan, "state_ns:fan-slot", namespaces=self.nsmap)
-
-                oper_state = (
-                    True
-                    if self._find_txt(
-                        fan,
-                        "state_ns:hardware-data/state_ns:oper-state",
-                        namespaces=self.nsmap,
-                    )
-                    == "in-service"
-                    else False
-                )
-                environment_data["fans"].update({fan_slot: {"status": oper_state}})
-
-            # get the output of each power-module using MD-CLI
-            buff = self._perform_cli_commands(
-                [
-                    "/show chassis power-management utilization detail",
-                    # JvB: on VSR this is 'power-supply'
-                ],
-                True,
-                no_more=True
-            )
-            total_power_modules = 0
-            output = 0.0
-            for item in buff.split("\n"):
-                if "Power Module" in item:
-                    total_power_modules = total_power_modules + 1
-                if "Current Util." in item:
-                    row = item.strip()
-                    watts = re.match("^.*:\s*(\d+[.]\d+) Watts.*$", item)
-                    if watts:
-                        output = float(watts.groups()[0])
-
-            for power_module in result.xpath(
-                "state_ns:state/state_ns:chassis/state_ns:power-shelf/state_ns:power-module",
-                namespaces=self.nsmap,
-            ):
-                power_module_id = convert(
-                    int,
-                    self._find_txt(
-                        power_module, "state_ns:power-module-id", namespaces=self.nsmap
-                    ),
-                )
-                oper_state = (
-                    True
-                    if self._find_txt(
-                        power_module,
-                        "state_ns:hardware-data/state_ns:oper-state",
-                        namespaces=self.nsmap,
-                    )
-                    == "in-service"
-                    else False
-                )
-                capacity = convert(
-                    float,
-                    self._find_txt(
-                        power_module, "state_ns:available-wattage", namespaces=self.nsmap
-                    ),
-                )
-                environment_data["power"].update(
-                    {
-                        str(power_module_id): {
-                            "status": oper_state,
-                            "capacity": capacity,
-                            "output": output / total_power_modules,
-                        }
+                    _data = {
+                        "temperature": _temp,
+                        "is_alert": _temp >= _temp_warn,
+                        "is_critical": _temp >= _data["temperature-threshold"],
                     }
+                    environment_data["temperature"].update({location: _data})
+
+                result = to_ele(
+                    self.conn.get(
+                        filter=GET_ENVIRONMENT["_"], with_defaults="report-all"
+                    ).data_xml
                 )
 
-            for cpm in result.xpath("state_ns:state/state_ns:cpm", namespaces=self.nsmap):
-                _build_temperature_dict(cpm, choice=1)
-
-            for card in result.xpath("state_ns:state/state_ns:card", namespaces=self.nsmap):
-                _build_temperature_dict(card, choice=2)
-                for mda in card.xpath("state_ns:mda", namespaces=self.nsmap):
-                    _build_temperature_dict(mda, choice=3)
-
-            for system in result.xpath(
-                "state_ns:state/state_ns:system", namespaces=self.nsmap
-            ):
-                available_ram = convert(
-                    int,
-                    self._find_txt(
-                        system,
-                        "state_ns:memory-pools/state_ns:summary/state_ns:available-memory",
-                        namespaces=self.nsmap,
-                    ),
-                )
-                used_ram = convert(
-                    int,
-                    self._find_txt(
-                        system,
-                        "state_ns:memory-pools/state_ns:summary/state_ns:total-in-use",
-                        namespaces=self.nsmap,
-                    ),
-                )
-                environment_data.update({"cpu": {}})
-                for cpu in result.xpath(
-                    "state_ns:state/state_ns:system/state_ns:cpu", namespaces=self.nsmap
+                for fan in result.xpath(
+                    "state_ns:state/state_ns:chassis/state_ns:fan", namespaces=self.nsmap
                 ):
-                    sample_period = convert(
+                    fan_slot = self._find_txt(fan, "state_ns:fan-slot", namespaces=self.nsmap)
+
+                    oper_state = (
+                        True
+                        if self._find_txt(
+                            fan,
+                            "state_ns:hardware-data/state_ns:oper-state",
+                            namespaces=self.nsmap,
+                        )
+                        == "in-service"
+                        else False
+                    )
+                    environment_data["fans"].update({fan_slot: {"status": oper_state}})
+
+                # get the output of each power-module using MD-CLI
+                buff = self._perform_cli_commands(
+                    [
+                        "/show chassis power-management utilization detail",
+                        # JvB: on VSR this is 'power-supply'
+                    ],
+                    True,
+                    no_more=True
+                )
+                total_power_modules = 0
+                output = 0.0
+                for item in buff.split("\n"):
+                    if "Power Module" in item:
+                        total_power_modules = total_power_modules + 1
+                    if "Current Util." in item:
+                        row = item.strip()
+                        watts = re.match(r"^.*:\s*(\d+[.]\d+) Watts.*$", item)
+                        if watts:
+                            output = float(watts.groups()[0])
+
+                for power_module in result.xpath(
+                    "state_ns:state/state_ns:chassis/state_ns:power-shelf/state_ns:power-module",
+                    namespaces=self.nsmap,
+                ):
+                    power_module_id = convert(
                         int,
                         self._find_txt(
-                            cpu, "state_ns:sample-period", namespaces=self.nsmap
+                            power_module, "state_ns:power-module-id", namespaces=self.nsmap
                         ),
                     )
-                    cpu_usage = convert(
+                    oper_state = (
+                        True
+                        if self._find_txt(
+                            power_module,
+                            "state_ns:hardware-data/state_ns:oper-state",
+                            namespaces=self.nsmap,
+                        )
+                        == "in-service"
+                        else False
+                    )
+                    capacity = convert(
                         float,
                         self._find_txt(
-                            cpu,
-                            "state_ns:summary/state_ns:usage/state_ns:cpu-usage",
+                            power_module, "state_ns:available-wattage", namespaces=self.nsmap
+                        ),
+                    )
+                    environment_data["power"].update(
+                        {
+                            str(power_module_id): {
+                                "status": oper_state,
+                                "capacity": capacity,
+                                "output": output / total_power_modules,
+                            }
+                        }
+                    )
+
+                for u in ('cpm','sfm'):
+                  for e in result.xpath(f"state_ns:state/state_ns:{u}", namespaces=self.nsmap):
+                    _slot = self._find_txt(e,f"state_ns:{u}-slot",namespaces=self.nsmap)
+                    _build_temperature_dict(e, location=f"{u}-{_slot}")
+
+                for card in result.xpath("state_ns:state/state_ns:card", namespaces=self.nsmap):
+                    _slot = self._find_txt(card,"state_ns:slot-number",namespaces=self.nsmap)
+                    _build_temperature_dict(card, location=f"card-{_slot}")
+                    for mda in card.xpath("state_ns:mda", namespaces=self.nsmap):
+                        _mda_slot = self._find_txt(mda,"state_ns:mda-slot",namespaces=self.nsmap)
+                        _build_temperature_dict(mda, location=f"mda-{_mda_slot}")
+
+                for system in result.xpath(
+                    "state_ns:state/state_ns:system", namespaces=self.nsmap
+                ):
+                    available_ram = convert(
+                        int,
+                        self._find_txt(
+                            system,
+                            "state_ns:memory-pools/state_ns:summary/state_ns:available-memory",
                             namespaces=self.nsmap,
                         ),
-                        default=-1,
                     )
-                    environment_data["cpu"].update({str(sample_period): {"%usage": cpu_usage}})
+                    used_ram = convert(
+                        int,
+                        self._find_txt(
+                            system,
+                            "state_ns:memory-pools/state_ns:summary/state_ns:total-in-use",
+                            namespaces=self.nsmap,
+                        ),
+                    )
+                    environment_data.update({"cpu": {}})
+                    for cpu in result.xpath(
+                        "state_ns:state/state_ns:system/state_ns:cpu", namespaces=self.nsmap
+                    ):
+                        sample_period = convert(
+                            int,
+                            self._find_txt(
+                                cpu, "state_ns:sample-period", namespaces=self.nsmap
+                            ),
+                        )
+                        cpu_usage = convert(
+                            float,
+                            self._find_txt(
+                                cpu,
+                                "state_ns:summary/state_ns:usage/state_ns:cpu-usage",
+                                namespaces=self.nsmap,
+                            ),
+                            default=-1,
+                        )
+                        environment_data["cpu"].update({str(sample_period): {"%usage": cpu_usage}})
 
-                environment_data["memory"].update(
-                    {"available_ram": available_ram + used_ram, "used_ram": used_ram}
-                )
-            return environment_data
-        except Exception as e:
-            print("Error in method get environment data : {}".format(e))
-            log.error("Error in method get environment data : %s" % traceback.format_exc())
+                    environment_data["memory"].update(
+                        {"available_ram": available_ram + used_ram, "used_ram": used_ram}
+                    )
+                return environment_data
+            except Exception as e:
+                print("Error in method get environment data : {}".format(e))
+                log.error("Error in method get environment data : %s" % traceback.format_exc())
 
 
     def get_ipv6_neighbors_table(self):

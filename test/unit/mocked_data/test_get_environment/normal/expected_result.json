@@ -25,17 +25,17 @@
         }
     },
     "temperature": {
-        "cpm": {
+        "cpm-A": {
             "temperature": 62.0,
             "is_alert": false,
             "is_critical": false
         },
-        "card": {
+        "card-1": {
             "temperature": 62.0,
             "is_alert": false,
             "is_critical": false
         },
-        "mda": {
+        "mda-1": {
             "temperature": 49.0,
             "is_alert": false,
             "is_critical": false
