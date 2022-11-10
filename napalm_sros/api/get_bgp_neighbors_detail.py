@@ -72,7 +72,7 @@ NEIGHBOR_STATS = """
     <last-event/>
     <keep-alive-interval/>
     <hold-time-interval/>
-    <number-of-update-flaps/>
+    <established-transitions/>
     <received>
         <messages/>
         <updates/>
@@ -226,7 +226,7 @@ def get_bgp_neighbors_detail(conn,neighbor_address=""):
       'accepted_prefix_count': count['received']['total'] - count['rejected']['total'],
       'suppressed_prefix_count': count['suppressed']['total'],
       'advertised_prefix_count': count['sent']['total'],
-      'flap_count': state_int('number-of-update-flaps')
+      'flap_count': state_int('established-transitions')
     }
 
     if name not in result:
